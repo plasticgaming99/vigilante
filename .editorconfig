@@ -1,0 +1,3 @@
+root = true
+[*.v]
+indent_style = tab

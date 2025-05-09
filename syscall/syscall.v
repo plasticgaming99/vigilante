@@ -1,3 +1,5 @@
+module syscall
+
 #include <unistd.h>
 #include <linux/reboot.h>
 #include <sys/reboot.h>
@@ -26,6 +28,15 @@ pub fn reboot() ! {
 	}
 }
 
-pub fn C.mount(source string, target string, fstype string, mountflags u32, data ?) int
+fn C.mount(source string, target string, fstype string, mountflags u32, data ?) int
+pub fn mount(source string, target string, fstype string, mountflafs u32, data ?) ! {
+	code := C.mount(source, target, fstype, mountflafs, data)
+	if code != 0 {
+		return error("failed to mount")
+	}
+}
 
-pub fn C.pause()
+fn C.pause()
+pub fn pause() {
+	C.pause()
+}

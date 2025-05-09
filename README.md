@@ -13,13 +13,13 @@ args = "args"
 pid-file = "/path/to/pid/file"
 depends-on = "(services)"
 depends-hard = "(services)"
-waits-for "(services)"
+waits-for = "(services)"
 
 [mount]
 resource = "{device, file, or anything}"
 mount-to = "/target/to/mount or none"
 fs-type = "filesystem type"
 options = "mount option"
-require-rw = bool
-directory-mode = mode
+require-rw = true #bool
+directory-mode = 0755 #filemode
 ```

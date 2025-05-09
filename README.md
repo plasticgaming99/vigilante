@@ -11,9 +11,9 @@ type = "{process, fork, script, internal}"
 command = "command"
 args = "args"
 pid-file = "/path/to/pid/file"
-depends-on = "(service)"...
-depends-hard = "(service)"...
-waits-for "(service)"...
+depends-on = "(services)"
+depends-hard = "(services)"
+waits-for "(services)"
 
 [mount]
 resource = "{device, file, or anything}"

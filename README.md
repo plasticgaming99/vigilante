@@ -10,16 +10,18 @@ description = "description"
 type = "{process, fork, script, internal}"
 command = "command"
 args = "args"
-pid-file = "/path/to/pid/file"
-depends-on = "(services)"
-depends-hard = "(services)"
-waits-for = "(services)"
+after = ["services"]
+before = ["services"]
+pid_file = "/path/to/pid/file"
+depends_on = ["services"]
+depends_hard = ["services"]
+waits_for = ["services"]
 
 [mount]
 resource = "{device, file, or anything}"
-mount-to = "/target/to/mount or none"
-fs-type = "filesystem type"
+mount_to = "/target/to/mount or none"
+fs_type = "filesystem type"
 options = "mount option"
-require-rw = true #bool
+require_rw = true #bool
 directory-mode = 0755 #filemode
 ```

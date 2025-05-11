@@ -1,0 +1,4 @@
+[service]
+type = "internal"
+depends_on = "multi-user.target"
+depends_on = "networking.target"

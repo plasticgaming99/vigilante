@@ -1,17 +1,14 @@
+module main
+
 import os
 import time
 import syscall
 
 fn signal_handler(sig os.Signal) {
 	if sig == os.Signal.usr1 {
-		syscall.shutdown() or { 
-			print("failed to shut down")
-		}
-	} else
-	if sig == os.Signal.int {
-		syscall.reboot() or {
-			println("failed to reboot")
-		}
+		syscall.shutdown() or { print('failed to shut down') }
+	} else if sig == os.Signal.int {
+		syscall.reboot() or { println('failed to reboot') }
 	}
 }
 
@@ -34,76 +31,75 @@ fn walk_service_dir(fpath string, mut vserv map[string]VigService) {
 	if os.is_dir(fpath) {
 		return
 	}
-	if !(fpath.contains_any_substr([".service", ".mount", ".target"])) {
+	if !(fpath.contains_any_substr(['.service', '.mount', '.target'])) {
 		return
 	}
 
-	unsafe {vserv[os.base(fpath)] = load_service_file(fpath) or {
-		return
-	}}
+	unsafe {
+		vserv[os.base(fpath)] = load_service_file(fpath) or { return }
+	}
 }
 
 fn main() {
-	//println(load_service_file("./test.service") or { err.str() })
-	//exit(1)
+	// println(load_service_file("./test.service") or { err.str() })
+	// exit(1)
 	mut is_system_init := false
-	mut is_system_mgr := false
-	mut is_user_service_mgr := false
-	mut service_dir := "/etc/vigilante.d/"
+	// mut is_user_service_mgr := false
+	mut service_dir := '/etc/vigilante.d/boot.d'
 	mut vig_services := map[string]VigService{}
 
 	if os.getpid() == 1 {
 		is_system_init = true
-	} else {
-		if os.getuid() == 1 {
-			is_system_mgr = true
-		} else {
-			is_user_service_mgr = true
-		}
 	}
 
 	for i := 0; i < os.args.len; i++ {
-		if os.args[i].starts_with("-") {
-			if os.args[i] == "--system" || os.args[i] == "-s" {
+		if os.args[i].starts_with('-') {
+			if os.args[i] == '--system' || os.args[i] == '-s' {
 				is_system_init = true
-			} else
-			if os.args[i] == "--service-dir" || os.args[i] == "-d" {
-				if i+1 >  os.args.len {
-					println("--service-dir/-d requires an argument")
+			} else if os.args[i] == '--service-dir' || os.args[i] == '-d' {
+				if i + 1 > os.args.len {
+					println('--service-dir/-d requires an argument')
 				}
-				if os.args[i+1] != "\0" {
-					service_dir = os.args[i+1]
+				if os.args[i + 1] != '\0' {
+					service_dir = os.args[i + 1]
 					i++
 				}
 			}
 		}
 	}
 
-	if is_system_init {
-		os.signal_opt(os.Signal.usr1, signal_handler) or {
-			print("error during handling shutdown")
-		}
-		os.signal_opt(os.Signal.int, signal_handler) or {
-			print("error during handling reboot")
-		}
-		go handle_zombie()
+	if _likely_(is_system_init) {
+		os.signal_opt(os.Signal.usr1, signal_handler) or { print('error during handling shutdown') }
+		os.signal_opt(os.Signal.int, signal_handler) or { print('error during handling reboot') }
+		// go handle_zombie()
 	} else {
-		os.signal_opt(os.Signal.usr1, signal_handler_noninit) or {
-			print("exited")
-		}
-		os.signal_opt(os.Signal.int, signal_handler_noninit) or {
-			print("exited")
-		}
+		os.signal_opt(os.Signal.usr1, signal_handler_noninit) or { print('exited') }
+		os.signal_opt(os.Signal.int, signal_handler_noninit) or { print('exited') }
 	}
 
 	mut v_s := &vig_services
 	// load service files
-	if is_system_init {
+	if _likely_(is_system_init) {
 		os.walk(service_dir, fn [mut v_s] (s string) {
 			walk_service_dir(s, mut v_s)
 		})
 	}
 	println(vig_services.str())
 
-	syscall.pause()
+	println((vig_services.len))
+
+	// find default target (entry point!!)
+	// priority ordered by: default.target(best) -> default -> boot
+	println(vig_services['default.target'] or {
+		vig_services['default'] or { vig_services['boot'] }
+	})
+
+	epoll := syscall.epoll_create1(0) or {
+		println(err)
+		exit(1)
+	}
+
+	println("epoll ${epoll}")
+
+	//syscall.pause()
 }

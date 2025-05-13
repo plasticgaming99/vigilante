@@ -7,7 +7,11 @@ module syscall
 #include <signal.h>
 #include <sys/syscall.h>
 
-fn C.syscall(sysno int, arg1 voidptr, arg2 voidptr, arg3 voidptr, arg4 voidptr, arg5 voidptr, arg6 voidptr) int
+pub fn wnohang() int {
+	return C.WNOHANG
+}
+
+fn C.syscall(sysno int, ...voidptr) int
 
 fn C.reboot(cmd int) int
 
@@ -40,7 +44,9 @@ pub fn mount(source string, target string, fstype string, mountflafs u32, data ?
 	}
 }
 
-fn C.pause()
-pub fn pause() {
-	C.pause()
+fn C.waidpid(pid int, status &int, options int) int
+pub fn waitpid(pid int, options int) (int, int) {
+	mut cstat := unsafe { nil }
+	ret_pid := C.waitpid(pid, cstat, options)
+	return ret_pid, int(cstat)
 }

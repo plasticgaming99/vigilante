@@ -1,7 +1,6 @@
 module main
 
 import os
-import time
 import syscall
 
 fn signal_handler(sig os.Signal) {
@@ -18,13 +17,15 @@ fn signal_handler_noninit(sig os.Signal) {
 	}
 }
 
-fn handle_zombie() {
-	for {
-		pid := os.wait()
-		if pid == -1 {
-			time.sleep(1 * time.second)
-		}
+fn handlezombiechld(sig os.Signal) {
+	if sig == os.Signal.chld {
+		handle_zombie()
 	}
+}
+
+fn handle_zombie() {
+	pid, status := syscall.waitpid(-1, syscall.wnohang())
+	println('process exited pid:${pid} exitcode:${status}')
 }
 
 fn walk_service_dir(fpath string, mut vserv map[string]VigService) {
@@ -40,6 +41,15 @@ fn walk_service_dir(fpath string, mut vserv map[string]VigService) {
 	}
 }
 
+fn callbacktest(fd int, events int, loop voidptr) {
+	println('callback')
+	println(fd)
+	println(events)
+	println(loop.str())
+	// println(pico)
+}
+
+@[direct_array_access]
 fn main() {
 	// println(load_service_file("./test.service") or { err.str() })
 	// exit(1)
@@ -70,7 +80,7 @@ fn main() {
 
 	if _likely_(is_system_init) {
 		os.signal_opt(os.Signal.usr1, signal_handler) or { print('error during handling shutdown') }
-		os.signal_opt(os.Signal.int, signal_handler) or { print('error during handling reboot') }
+		// os.signal_opt(os.Signal.int, signal_handler) or { print('error during handling reboot') }
 		// go handle_zombie()
 	} else {
 		os.signal_opt(os.Signal.usr1, signal_handler_noninit) or { print('exited') }
@@ -94,12 +104,40 @@ fn main() {
 		vig_services['default'] or { vig_services['boot'] }
 	})
 
+	// os.signal_opt(os.Signal.chld, handlezombiechld) or { panic('ohhh zombie') }
+
 	epoll := syscall.epoll_create1(0) or {
 		println(err)
 		exit(1)
 	}
 
-	println("epoll ${epoll}")
+	println('epoll ${epoll}')
 
-	//syscall.pause()
+	mut sigsetsub := syscall.new_sigset_fd()
+	sigsetsub.add(int(os.Signal.usr1))
+	sigsetsub.add(int(os.Signal.int))
+	sigsetsub.add(int(os.Signal.chld))
+	os.signal_ignore(.usr1)
+	os.signal_ignore(.int)
+	os.signal_ignore(.chld)
+
+	signalfd := syscall.signalfd(-1, sigsetsub, C.SFD_NONBLOCK | C.SFD_CLOEXEC)
+	if signalfd == 1 {
+		println(os.posix_get_error_msg(C.errno))
+		exit(0)
+	}
+
+	println('signalfd ${signalfd}')
+
+	// pico_conf := picoev.Config{}
+	// mut pico_loop := picoev.new(pico_conf) or { panic('failed to create loop') }
+	// pico_loop.add(signalfd, picoev.max_queue, -1, callbacktest)
+
+	// this is test code.
+	st := os.input('onecmd')
+	os.execute(st)
+	strr, btt := os.fd_read(signalfd, 1000)
+	println('${strr.str} ${btt.str()}')
+
+	// syscall.pause()
 }

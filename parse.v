@@ -1,11 +1,11 @@
 import toml
 
-@[direct_array_access; minify; packed]
+@[minify; packed]
 pub struct VigServiceInfo {
 	description string
 }
 
-@[direct_array_access; minify; packed]
+@[minify; packed]
 pub struct VigServiceService {
 	type             string
 	command          string
@@ -20,7 +20,7 @@ pub struct VigServiceService {
 	start_on_console bool
 }
 
-@[direct_array_access; minify; packed]
+@[minify; packed]
 pub struct VigServiceMount {
 	resource       string
 	mount_to       string
@@ -31,7 +31,7 @@ pub struct VigServiceMount {
 }
 
 // service file
-@[direct_array_access; minify; packed]
+@[minify; packed]
 pub struct VigService {
 	info    VigServiceInfo
 	service VigServiceService
@@ -48,9 +48,9 @@ fn load_service_file(fpath string) !VigService {
 	return serv
 }
 
-@[direct_array_access; minify; packed]
+@[minify; packed]
 pub struct VigServicePr {
-	desc      string
+	desc string
 
 	type      [8]u8
 	cmd       [64]u8
@@ -61,14 +61,14 @@ pub struct VigServicePr {
 	dependson [][32]u8
 	dependshd [][32]u8
 	waitsfor  [][32]u8
-	//roc_soc   [1]u8
+	// roc_soc   [1]u8
 	r_console bool
 	s_console bool
 
-	resource  ?string
-	mountto   ?string
-	fstype    ?[16]u8
-	options   ?[64]u8
-	reqrw     ?bool
-	dirmode   ?[1]u8
+	resource ?string
+	mountto  ?string
+	fstype   ?[16]u8
+	options  ?[64]u8
+	reqrw    ?bool
+	dirmode  ?[1]u8
 }

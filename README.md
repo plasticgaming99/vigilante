@@ -1,10 +1,10 @@
 # vigilante: an init system
 my experiment that writing init with V
 
-including:
-  vigilante: init
-  syscall:   wrap c language and linux syscall
-  quickev:   simple less-functional event loop
+including
+  vigilante, init
+  syscall,   wrap c language and linux syscall
+  quickev,   simple less-functional event loop
 
 service file example:
 ```toml

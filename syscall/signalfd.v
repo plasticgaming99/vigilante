@@ -1,5 +1,8 @@
-// bind C epoll to V
+// Wraps small amount of C syscall to V
+
 module syscall
+
+import os
 
 #include <unistd.h>
 #include <signal.h>
@@ -14,6 +17,18 @@ const sys_rt_sigprocmask = 14
 
 // todo: all
 
+pub struct C.epoll_data {
+	ptr voidptr
+	fd  int
+	u32 u32
+	u64 u64
+}
+
+pub struct C.epoll_event {
+	events u32
+	data   C.epoll_data
+}
+
 pub fn epoll_create1(flags int) !int {
 	e := C.syscall(sys_epoll_create1, flags)
 	if e < 0 {
@@ -23,8 +38,17 @@ pub fn epoll_create1(flags int) !int {
 	}
 }
 
-@[typedef]
-struct C.signalfd_siginfo {
+pub fn epoll_ctl(epfd int, fd int) {
+	mut event := C.epoll_event{}
+	event.data.fd = fd
+	e := C.syscall(sys_epoll_ctl, epfd, C.EPOLL_CTL_ADD, fd, &event)
+	if e == -1 {
+		println(os.posix_get_error_msg(C.errno))
+		panic('omg')
+	}
+}
+
+pub struct C.signalfd_siginfo {
 	ssi_signo   u32
 	ssi_errno   i32
 	ssi_code    i32
@@ -41,7 +65,7 @@ struct C.signalfd_siginfo {
 	ssi_utime   u64
 	ssi_stime   u64
 	ssi_addr    u64
-	pad         [48]u8
+	__pad       [28]u8
 }
 
 struct SigSetFd {
@@ -63,7 +87,6 @@ pub fn (mut ss SigSetFd) add(sig int) {
 }
 
 /*fn setup_signalfd_fd(ss &SigSetFd) int {
-	// 注意：signalfd の第2引数は void*、なので u64* でも安全
 	return C.signalfd(-1, ss.val.data, 0)
 }*/
 

@@ -2,6 +2,7 @@ module main
 
 import os
 import syscall
+import quickev
 
 fn signal_handler(sig os.Signal) {
 	if sig == os.Signal.usr1 {
@@ -79,7 +80,7 @@ fn main() {
 	}
 
 	if _likely_(is_system_init) {
-		os.signal_opt(os.Signal.usr1, signal_handler) or { print('error during handling shutdown') }
+		// os.signal_opt(os.Signal.usr1, signal_handler) or { print('error during handling shutdown') }
 		// os.signal_opt(os.Signal.int, signal_handler) or { print('error during handling reboot') }
 		// go handle_zombie()
 	} else {
@@ -104,40 +105,22 @@ fn main() {
 		vig_services['default'] or { vig_services['boot'] }
 	})
 
-	// os.signal_opt(os.Signal.chld, handlezombiechld) or { panic('ohhh zombie') }
-
-	epoll := syscall.epoll_create1(0) or {
-		println(err)
-		exit(1)
-	}
-
-	println('epoll ${epoll}')
-
-	mut sigsetsub := syscall.new_sigset_fd()
-	sigsetsub.add(int(os.Signal.usr1))
-	sigsetsub.add(int(os.Signal.int))
-	sigsetsub.add(int(os.Signal.chld))
-	os.signal_ignore(.usr1)
-	os.signal_ignore(.int)
-	os.signal_ignore(.chld)
-
-	signalfd := syscall.signalfd(-1, sigsetsub, C.SFD_NONBLOCK | C.SFD_CLOEXEC)
-	if signalfd == 1 {
-		println(os.posix_get_error_msg(C.errno))
-		exit(0)
-	}
-
-	println('signalfd ${signalfd}')
-
-	// pico_conf := picoev.Config{}
-	// mut pico_loop := picoev.new(pico_conf) or { panic('failed to create loop') }
-	// pico_loop.add(signalfd, picoev.max_queue, -1, callbacktest)
+	mut qevloop := quickev.init_loop() or { panic('Error initializing event loop!') }
+	qevloop.add_signal(os.Signal.usr1, fn () {
+		println('hi im function')
+	})
+	qevloop.add_signal(os.Signal.int, fn () {
+		println('hi im function 2')
+	})
+	qevloop.add_signal(os.Signal.chld, fn() {
+		println('hi im function 3, going to reap')
+	})
+	qevloop.finalize_signal() or { panic('Error during initializing event loop!') }
+	println('epoll fd:${qevloop.epollfd}')
+	st := os.input('one cmd')
+	os.execute(st)
+	qevloop.run()
 
 	// this is test code.
-	st := os.input('onecmd')
-	os.execute(st)
-	strr, btt := os.fd_read(signalfd, 1000)
-	println('${strr.str} ${btt.str()}')
 
-	// syscall.pause()
 }

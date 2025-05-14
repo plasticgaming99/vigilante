@@ -1,6 +1,11 @@
 # vigilante: an init system
 my experiment that writing init with V
 
+including:
+  vigilante: init
+  syscall:   wrap c language and linux syscall
+  quickev:   simple less-functional event loop
+
 service file example:
 ```toml
 [info]
@@ -23,5 +28,5 @@ mount_to = "/target/to/mount or none"
 fs_type = "filesystem type"
 options = "mount option"
 require_rw = true #bool
-directory-mode = 0755 #filemode
+directory-mode = "0755" #filemode
 ```

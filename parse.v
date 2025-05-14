@@ -27,7 +27,7 @@ pub struct VigServiceMount {
 	fs_type        string
 	options        string
 	require_rw     bool
-	directory_mode int
+	directory_mode string
 }
 
 // service file

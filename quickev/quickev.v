@@ -95,7 +95,6 @@ pub fn (mut ql QevLoop) run() {
 				ql.signalfd {
 					sfds := C.signalfd_siginfo{}
 					C.read(ql.signalfd, &sfds, sizeof(sfds))
-					println(sfds)
 					// don't confuse, sigwatch is SigWatcher.
 					for i2, _ in ql.sigwatch {
 						if int(ql.sigwatch[i2].signal) == int(sfds.ssi_signo) {

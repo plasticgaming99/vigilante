@@ -9,14 +9,16 @@ import os
 #include <sys/epoll.h>
 #include <sys/signalfd.h>
 
-const sys_epoll_create1 = 291
-const sys_epoll_ctl = 233
-const sys_epoll_wait = 232
-const sys_signalfd = 282
-const sys_rt_sigprocmask = 14
+const sys_epoll_create1 = C.__NR_epoll_create1
+const sys_epoll_ctl = C.__NR_epoll_ctl
+const sys_epoll_wait = C.__NR_epoll_wait
+const sys_epoll_pwait = C.__NR_epoll_pwait
+const sys_signalfd = C.__NR_signalfd
+const sys_rt_sigprocmask = C.__NR_rt_sigprocmask
 
 // todo: all
 
+@[typedef]
 pub struct C.epoll_data {
 	ptr voidptr
 	fd  int
@@ -38,14 +40,25 @@ pub fn epoll_create1(flags int) !int {
 	}
 }
 
-pub fn epoll_ctl(epfd int, fd int) {
-	mut event := C.epoll_event{}
+pub fn epoll_ctl(epfd int, op int, fd int, mut event C.epoll_event) {
 	event.data.fd = fd
-	e := C.syscall(sys_epoll_ctl, epfd, C.EPOLL_CTL_ADD, fd, &event)
+	e := C.syscall(sys_epoll_ctl, epfd, op, fd, &event)
 	if e == -1 {
 		println(os.posix_get_error_msg(C.errno))
 		panic('omg')
 	}
+}
+
+pub fn epoll_wait(fd int, mut events []C.epoll_event, timeout int) !int {
+	if events.len == 0 {
+		error("buffer isn't usable, or not exists")
+	}
+	ret := C.syscall(sys_epoll_wait, fd, unsafe { &events[0] }, events.len, timeout)
+	if ret < 0 {
+		println(os.posix_get_error_msg(C.errno))
+		return error('error calling syscall: epoll')
+	}
+	return ret
 }
 
 pub struct C.signalfd_siginfo {
@@ -68,7 +81,7 @@ pub struct C.signalfd_siginfo {
 	__pad       [28]u8
 }
 
-struct SigSetFd {
+pub struct SigSetFd {
 pub mut:
 	val [1]u64
 }

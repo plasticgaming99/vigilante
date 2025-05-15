@@ -11,6 +11,9 @@ import syscall
 #include <sys/epoll.h>
 #include <sys/signalfd.h>
 
+// max event
+const maxevent = 512
+
 @[packed]
 struct SignalWatcher {
 	callback fn () @[required]
@@ -29,14 +32,16 @@ fn (mut swt SignalWatcher) free() {
 @[packed]
 struct QevLoop {
 mut:
-	sigwatch []SignalWatcher
-	signalfd int
+	sigwatch      []SignalWatcher
+	signalfd_mask syscall.SigSetFd
+	sfdepollev    C.epoll_event
 pub mut:
-	epollfd int
+	signalfd int
+	epollfd  int
 }
 
 pub fn init_loop() !QevLoop {
-	ql := QevLoop{
+	mut ql := QevLoop{
 		epollfd: syscall.epoll_create1(0) or { return err }
 	}
 	return ql
@@ -58,14 +63,18 @@ pub fn (mut ql QevLoop) finalize_signal() ! {
 	mut ssfd := syscall.new_sigset_fd()
 	for swt in ql.sigwatch {
 		ssfd.add(int(swt.signal))
-		os.signal_ignore(swt.signal)
 	}
+	syscall.sigprocmask(C.SIG_BLOCK, &ssfd.val[0], unsafe { nil })
 	sfd := syscall.signalfd(-1, ssfd, C.SFD_NONBLOCK)
-	if sfd != 0 {
+	println(os.posix_get_error_msg(C.errno))
+	if sfd == -1 {
 		error('failed to create signalfd')
 	}
 	ql.signalfd = sfd
-	syscall.epoll_ctl(ql.epollfd, ql.signalfd)
+	ql.signalfd_mask = ssfd
+	ql.sfdepollev.events = u32(C.EPOLLIN)
+	mut e_ev := &ql.sfdepollev
+	syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_ADD, ql.signalfd, mut e_ev)
 }
 
 /*pub fn (mut ql QevLoop) {
@@ -75,11 +84,29 @@ pub fn (mut ql QevLoop) finalize_signal() ! {
 // Start main loop
 pub fn (mut ql QevLoop) run() {
 	for {
-		sfds := C.signalfd_siginfo{}
-		C.read(ql.signalfd, &sfds, sizeof(sfds))
-		for i := 0; i < ql.sigwatch.len; i++ {
-			if int(ql.sigwatch[i].signal) == int(sfds.ssi_signo) {
-				ql.sigwatch[i].callback()
+		mut eventbuf := [C.epoll_event{}].repeat(maxevent)
+		mut ev := &eventbuf
+		eventc := syscall.epoll_wait(ql.epollfd, mut ev, -1) or { 0 }
+		if eventc < 0 {
+			panic('error, epoll_wait')
+		}
+		for i := 0; i < eventc; i++ {
+			match eventbuf[i].data.fd {
+				ql.signalfd {
+					sfds := C.signalfd_siginfo{}
+					C.read(ql.signalfd, &sfds, sizeof(sfds))
+					println(sfds)
+					// don't confuse, sigwatch is SigWatcher.
+					for i2, _ in ql.sigwatch {
+						if int(ql.sigwatch[i2].signal) == int(sfds.ssi_signo) {
+							ql.sigwatch[i2].callback()
+						}
+					}
+				}
+				else {
+					println('mystery')
+					continue
+				}
 			}
 		}
 	}

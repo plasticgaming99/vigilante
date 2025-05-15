@@ -7,6 +7,8 @@ module syscall
 #include <signal.h>
 #include <sys/syscall.h>
 
+const sys_sigprocmask = C.__NR_rt_sigprocmask
+
 pub fn wnohang() int {
 	return C.WNOHANG
 }
@@ -14,6 +16,10 @@ pub fn wnohang() int {
 fn C.syscall(sysno int, ...voidptr) int
 
 fn C.reboot(cmd int) int
+
+pub fn sigprocmask(how int, set &u64, oldset &u64) int {
+	return C.syscall(sys_sigprocmask, how, set, oldset, sizeof(set))
+}
 
 pub fn shutdown() ! {
 	code := C.reboot(C.LINUX_REBOOT_CMD_POWER_OFF)

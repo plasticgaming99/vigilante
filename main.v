@@ -112,15 +112,16 @@ fn main() {
 	qevloop.add_signal(os.Signal.int, fn () {
 		println('hi im function 2')
 	})
-	qevloop.add_signal(os.Signal.chld, fn() {
+	qevloop.add_signal(os.Signal.chld, fn () {
 		println('hi im function 3, going to reap')
 	})
 	qevloop.finalize_signal() or { panic('Error during initializing event loop!') }
 	println('epoll fd:${qevloop.epollfd}')
+	println('signal fd:${qevloop.signalfd}')
 	st := os.input('one cmd')
 	os.execute(st)
+
 	qevloop.run()
 
 	// this is test code.
-
 }

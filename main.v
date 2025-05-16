@@ -30,7 +30,7 @@ fn handle_zombie() {
 }
 
 fn walk_service_dir(fpath string, mut vserv map[string]VigService) {
-	if os.is_dir(fpath) {
+	if _unlikely_(os.is_dir(fpath)) {
 		return
 	}
 	if !(fpath.contains_any_substr(['.service', '.mount', '.target'])) {
@@ -42,12 +42,9 @@ fn walk_service_dir(fpath string, mut vserv map[string]VigService) {
 	}
 }
 
-fn callbacktest(fd int, events int, loop voidptr) {
-	println('callback')
-	println(fd)
-	println(events)
-	println(loop.str())
-	// println(pico)
+// reap zomb
+fn sigchld_handler() {
+	syscall.waitpid(-1, C.WNOHANG)
 }
 
 @[direct_array_access]
@@ -97,14 +94,13 @@ fn main() {
 	}
 	println(vig_services.str())
 
-	println((vig_services.len))
-
 	// find default target (entry point!!)
 	// priority ordered by: default.target(best) -> default -> boot
-	println(vig_services['default.target'] or {
+	/*start_service(vig_services['default.target'] or {
 		vig_services['default'] or { vig_services['boot'] }
-	})
+	})*/
 
+	// setup event loop
 	mut qevloop := quickev.init_loop() or { panic('Error initializing event loop!') }
 	qevloop.add_signal(os.Signal.usr1, fn () {
 		println('hi im function')
@@ -118,8 +114,11 @@ fn main() {
 	qevloop.finalize_signal() or { panic('Error during initializing event loop!') }
 	println('epoll fd:${qevloop.epollfd}')
 	println('signal fd:${qevloop.signalfd}')
-	st := os.input('one cmd')
-	os.execute(st)
+	// st := os.input('one cmd')
+	// os.execute(st)
+
+	println('welcome to linux')
+	vig_services.start_service('default.target')
 
 	qevloop.run()
 

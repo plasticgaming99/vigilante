@@ -1,0 +1,6 @@
+# this is test!
+[service]
+type = "process"
+command = "/usr/bin/echo"
+args = "hello"
+waits_for = "graphical.target"

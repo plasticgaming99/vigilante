@@ -1,27 +1,31 @@
+module main
+
+import os
 import toml
 
-@[minify; packed]
 pub struct VigServiceInfo {
+mut:
+	name        string // it will set with key of map
 	description string
 }
 
-@[minify; packed]
 pub struct VigServiceService {
-	type             string
-	command          string
-	args             string
-	after            string
-	before           string
-	pid_file         string
-	depends_on       []string
-	depends_hard     []string
-	waits_for        []string
-	runs_on_console  bool
-	start_on_console bool
+mut:
+	type             string   // type of service! process, fork, script, internal
+	command          string   // name of command to start! only one.
+	args             string   // arguments. may be separated
+	after            []string //
+	before           []string //
+	pid_file         string   //
+	depends_on       []string //
+	depends_ms       []string //
+	waits_for        []string // runned after the process started.
+	runs_on_console  bool     // start on console. with stdio.
+	start_on_console bool     // start on console. exclusively.
 }
 
-@[minify; packed]
 pub struct VigServiceMount {
+mut:
 	resource       string
 	mount_to       string
 	fs_type        string
@@ -30,12 +34,33 @@ pub struct VigServiceMount {
 	directory_mode string
 }
 
+enum ServiceState {
+	stopped
+	starting
+	running
+	failed
+}
+
+enum ServiceReason {
+	user_specified
+	dependency
+}
+
+struct VigServiceInternal {
+mut:
+	pid          int
+	state        ServiceState
+	reason       ServiceReason
+	triggered_by string
+}
+
 // service file
-@[minify; packed]
 pub struct VigService {
-	info    VigServiceInfo
-	service VigServiceService
-	mount   VigServiceMount
+mut:
+	info     VigServiceInfo
+	service  VigServiceService
+	mount    VigServiceMount
+	internal VigServiceInternal
 }
 
 fn load_service_file(fpath string) !VigService {
@@ -45,10 +70,12 @@ fn load_service_file(fpath string) !VigService {
 	unsafe {
 		free(tom)
 	}
+	serv.info.name = os.base(fpath)
 	return serv
 }
 
-@[minify; packed]
+// mayB it improve performance
+/*@[minify; packed]
 pub struct VigServicePr {
 	desc string
 
@@ -71,4 +98,4 @@ pub struct VigServicePr {
 	options  ?[64]u8
 	reqrw    ?bool
 	dirmode  ?[1]u8
-}
+}*/

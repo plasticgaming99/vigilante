@@ -7,6 +7,8 @@ module syscall
 #include <signal.h>
 #include <sys/syscall.h>
 
+const sys_exec = C.__NR_execve
+const sys_fork = C.__NR_fork
 const sys_sigprocmask = C.__NR_rt_sigprocmask
 
 pub fn wnohang() int {

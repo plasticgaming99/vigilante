@@ -1,4 +1,6 @@
 [service]
 type = "internal"
-depends_on = "multi-user.target"
-depends_on = "networking.target"
+depends_on = [
+    "multi-user.target",
+    "networking.target"
+]

@@ -1,10 +1,15 @@
 # vigilante: an init system
-my experiment that writing init with V
+my experiment that writing init with V<br>
+much inspired by dinit
 
 including:<br>
-  vigilante, init<br>
-  syscall,   wrap c language and linux syscall<br>
-  quickev,   simple less-functional event loop<br>
+> vigilante, init<br>
+> syscall,   wrap small amount of c language and linux syscall<br>
+> quickev,   simple less-functional event loop<br>
+
+> [!CAUTION]
+> This init isn't battle tested, and stability is not guaranteed.
+> Use with your own risk.
 
 service file example:
 ```toml
@@ -19,7 +24,7 @@ after = ["services"]
 before = ["services"]
 pid_file = "/path/to/pid/file"
 depends_on = ["services"]
-depends_hard = ["services"]
+depends_ms = ["services"]
 waits_for = ["services"]
 
 [mount]

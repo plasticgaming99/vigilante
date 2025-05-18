@@ -53,8 +53,10 @@ pub fn mount(source string, target string, fstype string, mountflafs u32, data ?
 }
 
 fn C.waidpid(pid int, status &int, options int) int
-pub fn waitpid(pid int, options int) (int, int) {
-	mut cstat := unsafe { nil }
-	ret_pid := C.waitpid(pid, cstat, options)
-	return ret_pid, int(cstat)
+
+// return pid, status
+pub fn waitpid(pid int, options int) (int, &int) {
+	mut cstat := int(0)
+	ret_pid := C.waitpid(pid, &cstat, options)
+	return ret_pid, &cstat
 }

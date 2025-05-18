@@ -1,9 +1,0 @@
-[info]
-description = "parsing test"
-
-[service]
-type = "internal"
-depends-on = [
-  "neovim.service",
-  "vscode.service"
-]

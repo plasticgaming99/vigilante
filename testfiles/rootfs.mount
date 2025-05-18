@@ -1,0 +1,4 @@
+#should be distro-dependent
+[service]
+type = "internal"
+required_by = "poweroff.target"

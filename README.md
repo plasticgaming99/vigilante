@@ -17,7 +17,7 @@ service file example:
 description = "description"
 
 [service]
-type = "{process, fork, script, internal}"
+type = "{process, fork, oneshot, internal}"
 command = "command"
 args = "args"
 after = ["services"]
@@ -33,5 +33,5 @@ mount_to = "/target/to/mount or none"
 fs_type = "filesystem type"
 options = "mount option"
 require_rw = true #bool
-directory-mode = "0755" #filemode
+directory_mode = "0755" #filemode
 ```

@@ -4,6 +4,8 @@ import os
 import syscall
 import quickev
 
+const vig_service_nil = VigService{}
+
 fn signal_handler(sig os.Signal) {
 	if sig == os.Signal.usr1 {
 		syscall.shutdown() or { print('failed to shut down') }
@@ -42,19 +44,27 @@ fn walk_service_dir(fpath string, mut vserv map[string]VigService) {
 	}
 }
 
-// reap zomb
-fn sigchld_handler() {
-	syscall.waitpid(-1, C.WNOHANG)
+// check pid is to be watched.
+fn (v_s_m &map[string]VigService) pid_to_service_name(pid int) ?string {
+	for _, v_s in v_s_m {
+		if v_s.internal.pid == pid {
+			println('yes in ${v_s.info.name}')
+			return v_s.info.name
+		}
+	}
+	return none
 }
 
-@[direct_array_access]
 fn main() {
 	// println(load_service_file("./test.service") or { err.str() })
 	// exit(1)
+	// global-variable-avoiding-zone start
 	mut is_system_init := false
 	// mut is_user_service_mgr := false
 	mut service_dir := '/etc/vigilante.d/boot.d'
 	mut vig_services := map[string]VigService{}
+
+	// global-variable-avoiding-zone end
 
 	if os.getpid() == 1 {
 		is_system_init = true
@@ -73,6 +83,8 @@ fn main() {
 					i++
 				}
 			}
+		} else {
+			// maybe linux kernel's own.
 		}
 	}
 
@@ -101,24 +113,30 @@ fn main() {
 	})*/
 
 	// setup event loop
-	mut qevloop := quickev.init_loop() or { panic('Error initializing event loop!') }
+	mut qevloop := quickev.init_loop() or {
+		println('Error initializing event loop!')
+		exit(1)
+	}
 	qevloop.add_signal(os.Signal.usr1, fn () {
 		println('hi im function')
 	})
 	qevloop.add_signal(os.Signal.int, fn () {
 		println('hi im function 2')
 	})
-	qevloop.add_signal(os.Signal.chld, fn () {
-		println('hi im function 3, going to reap')
+	qevloop.add_signal(os.Signal.chld, fn [mut v_s] () {
+		sigchld_handler(mut v_s)
 	})
-	qevloop.finalize_signal() or { panic('Error during initializing event loop!') }
-	println('epoll fd:${qevloop.epollfd}')
-	println('signal fd:${qevloop.signalfd}')
+	qevloop.finalize_signal() or {
+		println('Error during initializing event loop!')
+		exit(1)
+	}
+	println('epoll fd:${qevloop.get_epollfd()}')
+	println('signal fd:${qevloop.get_signalfd()}')
 	// st := os.input('one cmd')
 	// os.execute(st)
-
+	v_s.merge_required_by()
 	println('welcome to linux')
-	vig_services.start_service('default.target')
+	v_s.start_service('default.target')
 
 	qevloop.run()
 

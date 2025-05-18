@@ -1,0 +1,3 @@
+[service]
+type = "internal"
+depends_on = "recovery.target"

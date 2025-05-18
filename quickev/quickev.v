@@ -1,5 +1,6 @@
 // quickev is a single threaded event loop librrary
 // not recommended for using in network applications
+// only epoll/linux-fds is available currently
 
 module quickev
 
@@ -35,14 +36,13 @@ mut:
 	sigwatch      []SignalWatcher
 	signalfd_mask syscall.SigSetFd
 	sfdepollev    C.epoll_event
-pub mut:
-	signalfd int
-	epollfd  int
+	signalfd      int
+	epollfd       int
 }
 
 pub fn init_loop() !QevLoop {
 	mut ql := QevLoop{
-		epollfd: syscall.epoll_create1(0) or { return err }
+		epollfd: syscall.epoll_create1(C.O_CLOEXEC) or { return err }
 	}
 	return ql
 }
@@ -65,7 +65,7 @@ pub fn (mut ql QevLoop) finalize_signal() ! {
 		ssfd.add(int(swt.signal))
 	}
 	syscall.sigprocmask(C.SIG_BLOCK, &ssfd.val[0], unsafe { nil })
-	sfd := syscall.signalfd(-1, ssfd, C.SFD_NONBLOCK)
+	sfd := syscall.signalfd(-1, ssfd, C.SFD_NONBLOCK | C.O_CLOEXEC)
 	println(os.posix_get_error_msg(C.errno))
 	if sfd == -1 {
 		error('failed to create signalfd')
@@ -77,18 +77,27 @@ pub fn (mut ql QevLoop) finalize_signal() ! {
 	syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_ADD, ql.signalfd, mut e_ev)
 }
 
+pub fn (ql &QevLoop) get_signalfd() int {
+	return ql.signalfd
+}
+
+pub fn (ql &QevLoop) get_epollfd() int {
+	return ql.epollfd
+}
+
 /*pub fn (mut ql QevLoop) {
 
 }*/
 
 // Start main loop
-pub fn (mut ql QevLoop) run() {
+pub fn (ql &QevLoop) run() {
 	for {
 		mut eventbuf := [C.epoll_event{}].repeat(maxevent)
 		mut ev := &eventbuf
 		eventc := syscall.epoll_wait(ql.epollfd, mut ev, -1) or { 0 }
 		if eventc < 0 {
-			panic('error, epoll_wait')
+			println('error, epoll_wait')
+			exit(1)
 		}
 		for i := 0; i < eventc; i++ {
 			match eventbuf[i].data.fd {

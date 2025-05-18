@@ -1,4 +1,5 @@
 // Wraps small amount of C syscall to V
+// foo fd epoll
 
 module syscall
 
@@ -14,6 +15,7 @@ const sys_epoll_ctl = C.__NR_epoll_ctl
 const sys_epoll_wait = C.__NR_epoll_wait
 const sys_epoll_pwait = C.__NR_epoll_pwait
 const sys_signalfd = C.__NR_signalfd
+const sys_timerfd = C.__NR_timerfd
 const sys_rt_sigprocmask = C.__NR_rt_sigprocmask
 
 // todo: all
@@ -45,7 +47,8 @@ pub fn epoll_ctl(epfd int, op int, fd int, mut event C.epoll_event) {
 	e := C.syscall(sys_epoll_ctl, epfd, op, fd, &event)
 	if e == -1 {
 		println(os.posix_get_error_msg(C.errno))
-		panic('omg')
+		println('omg')
+		exit(1)
 	}
 }
 
@@ -94,7 +97,8 @@ pub fn new_sigset_fd() SigSetFd {
 
 pub fn (mut ss SigSetFd) add(sig int) {
 	if sig < 1 || sig > 64 {
-		panic('Invalid signal ${sig}')
+		println('Invalid signal ${sig}')
+		exit(0)
 	}
 	ss.val[0] |= u64(1) << (sig - 1)
 }
@@ -104,5 +108,8 @@ pub fn (mut ss SigSetFd) add(sig int) {
 }*/
 
 pub fn signalfd(fd int, mask SigSetFd, flags int) int {
-	return C.syscall(sys_signalfd, fd, &mask, (sizeof(mask.val)), flags)
+	return C.syscall(sys_signalfd, fd, &mask, sizeof(mask.val), flags)
+}
+
+pub fn timerfd(fd int) {
 }

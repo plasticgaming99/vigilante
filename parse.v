@@ -3,27 +3,35 @@ module main
 import os
 import toml
 
+@[heap]
 pub struct VigServiceInfo {
 mut:
 	name        string // it will set with key of map
 	description string
 }
 
+@[heap]
 pub struct VigServiceService {
 mut:
-	type             string   // type of service! process, fork, script, internal
-	command          string   // name of command to start! only one.
-	args             string   // arguments. may be separated
-	after            []string //
-	before           []string //
-	pid_file         string   //
-	depends_on       []string //
-	depends_ms       []string //
-	waits_for        []string // runned after the process started.
-	runs_on_console  bool     // start on console. with stdio.
-	start_on_console bool     // start on console. exclusively.
+	type        string   // type of service! process, fork, oneshot, internal
+	command     string   // name of command to start! only one.
+	args        string   // arguments. may be separated
+	after       []string // N/A yet
+	before      []string // N/A yet
+	depends_on  []string // wait for service to start successfully
+	depends_ms  []string // depends_on, but don't stop the service when marked services are stopped
+	waits_for   []string // runned after the process started.
+	then_start  []string // start services after exited successfully
+	required_by []string // it's needed because vig has build-in mount
+
+	pid_file     string // enter filepath, if file exists, record pid, then mark service runnin'
+	start_string string // find string to detect the service started successfully
+
+	runs_on_console  bool // start on console. with stdio.
+	start_on_console bool // start on console. exclusively.
 }
 
+@[heap]
 pub struct VigServiceMount {
 mut:
 	resource       string
@@ -46,6 +54,7 @@ enum ServiceReason {
 	dependency
 }
 
+@[heap]
 struct VigServiceInternal {
 mut:
 	pid          int
@@ -55,6 +64,7 @@ mut:
 }
 
 // service file
+@[heap]
 pub struct VigService {
 mut:
 	info     VigServiceInfo
@@ -67,9 +77,6 @@ fn load_service_file(fpath string) !VigService {
 	tom := toml.parse_file(fpath) or { return error('failed to load service file ${err}') }
 	mut serv := VigService{}
 	serv = tom.decode[VigService]() or { return error('failed to parse service') }
-	unsafe {
-		free(tom)
-	}
 	serv.info.name = os.base(fpath)
 	return serv
 }

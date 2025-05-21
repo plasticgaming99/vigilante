@@ -1,0 +1,9 @@
+[info]
+description = "exit to measure exit time"
+
+[service]
+type = "oneshot"
+command = "kill"
+args = "-s KILL $VIG_PID"
+
+waits_for = "default.target"

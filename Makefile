@@ -7,4 +7,4 @@ CFLAGS = -O3 -march=skylake -mtune=generic -pipe -ffunction-sections -fdata-sect
 LDFLAGS = -O3 -flto=full -fuse-ld=lld -fintegrated-as -fintegrated-cc1 -Wl,-O2,--icf=safe,--gc-sections,--as-needed,--lto-O3
 
 all:
-	v . -prod -d no_segfault_handler -fast-math -cc "$(CC)" -cflags "$(CFLAGS)" -ldflags "$(LDFLAGS)"
+	v . -prod -prealloc -d no_segfault_handler -fast-math -cc "$(CC)" -cflags "$(CFLAGS)" -ldflags "$(LDFLAGS)"

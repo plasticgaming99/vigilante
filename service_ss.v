@@ -76,7 +76,14 @@ fn (mut v_s_m map[string]VigService) merge_required_by() {
 // why this fn exists? to make async-starting easier.
 fn (mut v_s VigService) start_process() int {
 	cmd := v_s.service.command
-	args := v_s.service.args.split(' ')
+	mut args := []string{}
+	if v_s.service.args != '' {
+		replacer := [
+			'\$VIG_PID',
+			os.getpid().str(),
+		]
+		args = v_s.service.args.split(' ').map(it.replace_each(replacer))
+	}
 	val := os.fork()
 	if val == 0 {
 		os.execvp(cmd, args) or {
@@ -111,7 +118,20 @@ fn (mut v_s_m map[string]VigService) start_service(str string) {
 		v_s_m[s].internal.pid = pid
 	}
 
-	println('reached target ${v_s_m[s].info.name}')
+	match v_s_m[s].info.name.after('.') {
+		'target' {
+			println('reached target ${v_s_m[s].info.name}')
+		}
+		'service' {
+			println('starting service ${v_s_m[s].info.name}')
+		}
+		'mount' {
+			println('mounted ${v_s_m[s].info.name}')
+		}
+		else {
+			println('runned unknown ${v_s_m[s].info.name}')
+		}
+	}
 
 	wf_s := v_s_m.find_waits_for(s)
 	if 0 < wf_s.len {

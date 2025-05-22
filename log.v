@@ -10,3 +10,20 @@ module main
 // [    **]
 // [     *]
 // [FAILED]
+
+pub fn logsimple(svcname string) {
+	match svcname.after('.') {
+		'target' {
+			println('reached target ${svcname}')
+		}
+		'service' {
+			println('starting service ${svcname}')
+		}
+		'mount' {
+			println('mounted ${svcname}')
+		}
+		else {
+			println('runned unknown ${svcname}')
+		}
+	}
+}

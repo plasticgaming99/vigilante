@@ -56,11 +56,12 @@ fn (v_s_m &map[string]VigService) find_required_by(svcname string) []string {
 	return ret
 }
 
+// merged with this.
 fn (mut v_s_m map[string]VigService) merge_required_by() {
 	for k, v in v_s_m {
 		mut req := v_s_m.find_required_by(k)
 		if req.len > 0 {
-			if !v.service.depends_on.contains(k) {
+			if !v.service.depends_on.contains('vt_' + k) {
 				for i := 0; i < req.len; i++ {
 					req[i] = 'vt_' + req[i]
 				}
@@ -74,7 +75,7 @@ fn (mut v_s_m map[string]VigService) merge_required_by() {
 // Start PROCESS
 // Enter path of command! It will supervised with event loop.
 // why this fn exists? to make async-starting easier.
-fn (mut v_s VigService) start_process() int {
+fn (mut v_s VigService) start_process(reason ServiceReason) {
 	cmd := v_s.service.command
 	mut args := []string{}
 	if v_s.service.args != '' {
@@ -84,38 +85,120 @@ fn (mut v_s VigService) start_process() int {
 		]
 		args = v_s.service.args.split(' ').map(it.replace_each(replacer))
 	}
-	val := os.fork()
-	if val == 0 {
+	pid := os.fork()
+	if pid == 0 {
 		os.execvp(cmd, args) or {
 			println('Failed to exec')
 			exit(0)
 		}
 	}
-	return val
+	v_s.internal.pid = pid
+	return
 }
 
-// Start SERVICE
-fn (mut v_s_m map[string]VigService) start_service(str string) {
+// Start SERVICE, DFS, main implementation
+fn (mut v_s_m map[string]VigService) start_service(st string) {
+	mut str := st
+	mut graph := map[string][]string{}
+	for k, _ in v_s_m {
+		graph[k] = []string{}
+	}
+
+	for k, v in v_s_m {
+		// depends on
+		for dep in v.service.depends_on {
+			if dep in v_s_m {
+				graph[k] << dep
+			}
+		}
+		// depends ms
+		for dep in v.service.depends_ms {
+			if dep in v_s_m {
+				graph[k] << dep
+			}
+		}
+		// waits for
+		for waits in v_s_m.find_waits_for(k) {
+			if waits in v_s_m {
+				graph[k] << waits
+			}
+		}
+	}
+
+	mut processed := map[string]bool{}
+	mut instack := map[string]bool{}
+	mut stack := []string{}
+
+	println('graph!!! ${graph}')
+	println('maybe ${str}')
+
+	stack << str
+
+	mut process := map[string]bool{}
+
+	for stack.len > 0 {
+		current := stack[stack.len - 1]
+		if current in processed {
+			stack.pop()
+			continue
+		}
+		instack[current] = true
+		mut processed_all := true
+
+		for dep in graph[current] {
+			mut depname := dep
+			if depname.contains('vt_') {
+				depname = depname.after('vt_')
+			}
+			if dep !in processed && dep !in instack {
+				stack << dep
+				processed_all = false
+			}
+		}
+
+		if processed_all {
+			stack.pop()
+			instack[current] = false
+			process[current] = false
+		}
+	}
+
+	for serv in process.keys() {
+		mut servname := serv
+		if servname.contains('vt_') {
+			servname = servname.after('vt_')
+		}
+		if servname in v_s_m {
+			if v_s_m[serv].service.command != '' {
+				v_s_m[serv].start_process(.dependency)
+			}
+		}
+		logsimple(servname)
+		processed[servname] = true
+	}
+}
+
+// Start SERVICE, previous implement!! should removed with gc sections!!
+fn (mut v_s_m map[string]VigService) start_service_recursive(str string) {
 	mut s := str
 	if str.contains('vt_') {
 		s = str.after('vt_')
 	}
 	if v_s_m[s].service.depends_on.len != 0 {
 		for i := 0; i < v_s_m[s].service.depends_on.len; i++ {
-			v_s_m.start_service(v_s_m[s].service.depends_on[i])
+			v_s_m.start_service_recursive(v_s_m[s].service.depends_on[i])
 		}
 	}
 
 	// TODO: rewrite,
 	if v_s_m[s].service.depends_ms.len != 0 {
 		for i := 0; i < v_s_m[s].service.depends_ms.len; i++ {
-			v_s_m.start_service(v_s_m[s].service.depends_ms[i])
+			v_s_m.start_service_recursive(v_s_m[s].service.depends_ms[i])
 		}
 	}
 
 	if v_s_m[s].service.command != '' {
-		pid := v_s_m[s].start_process()
-		v_s_m[s].internal.pid = pid
+		v_s_m[s].start_process(ServiceReason.dependency)
 	}
 
 	match v_s_m[s].info.name.after('.') {
@@ -137,7 +220,7 @@ fn (mut v_s_m map[string]VigService) start_service(str string) {
 	if 0 < wf_s.len {
 		// println('starting waits_for services')
 		for _, st in wf_s {
-			v_s_m.start_service(st)
+			v_s_m.start_service_recursive(st)
 		}
 	}
 }

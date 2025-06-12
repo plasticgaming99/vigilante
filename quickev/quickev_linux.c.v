@@ -85,10 +85,6 @@ pub fn (ql &QevLoop) get_epollfd() int {
 	return ql.epollfd
 }
 
-/*pub fn (mut ql QevLoop) {
-
-}*/
-
 // Start main loop
 pub fn (ql &QevLoop) run() {
 	for {

@@ -6,31 +6,6 @@ import quickev
 
 const vig_service_nil = VigService{}
 
-fn signal_handler(sig os.Signal) {
-	if sig == os.Signal.usr1 {
-		syscall.shutdown() or { print('failed to shut down') }
-	} else if sig == os.Signal.int {
-		syscall.reboot() or { println('failed to reboot') }
-	}
-}
-
-fn signal_handler_noninit(sig os.Signal) {
-	if sig == os.Signal.usr1 || sig == os.Signal.int {
-		exit(0)
-	}
-}
-
-fn handlezombiechld(sig os.Signal) {
-	if sig == os.Signal.chld {
-		handle_zombie()
-	}
-}
-
-fn handle_zombie() {
-	pid, status := syscall.waitpid(-1, syscall.wnohang())
-	println('process exited pid:${pid} exitcode:${status}')
-}
-
 fn walk_service_dir(fpath string, mut vserv map[string]VigService) {
 	if _unlikely_(os.is_dir(fpath)) {
 		return
@@ -55,25 +30,34 @@ fn (v_s_m &map[string]VigService) pid_to_service_name(pid int) ?string {
 	return none
 }
 
+enum VigProcessType {
+	sys_init
+	sys_serv
+	user_serv
+}
+
 fn main() {
 	// println(load_service_file("./test.service") or { err.str() })
 	// exit(1)
 	// global-variable-avoiding-zone start
-	mut is_system_init := false
-	// mut is_user_service_mgr := false
+	mut servicetype := VigProcessType.user_serv
 	mut service_dir := '/etc/vigilante.d/boot.d'
 	mut vig_services := map[string]VigService{}
 
 	// global-variable-avoiding-zone end
 
 	if os.getpid() == 1 {
-		is_system_init = true
+		servicetype = VigProcessType.sys_init
 	}
 
 	for i := 0; i < os.args.len; i++ {
 		if os.args[i].starts_with('-') {
-			if os.args[i] == '--system' || os.args[i] == '-s' {
-				is_system_init = true
+			if os.args[i] == '--sysinit' || os.args[i] == '-s' {
+				servicetype = VigProcessType.sys_init
+			} else if os.args[i] == '--sysserv' || os.args[i] == '-e' {
+				servicetype = VigProcessType.sys_serv
+			} else if os.args[i] == '--userserv' || os.args[i] == '-u' {
+				servicetype = VigProcessType.user_serv
 			} else if os.args[i] == '--service-dir' || os.args[i] == '-d' {
 				if i + 1 > os.args.len {
 					println('--service-dir/-d requires an argument')
@@ -84,22 +68,19 @@ fn main() {
 				}
 			}
 		} else {
-			// maybe linux kernel's own.
+			// maybe linux kernel's own. maybe
 		}
 	}
 
-	if _likely_(is_system_init) {
-		// os.signal_opt(os.Signal.usr1, signal_handler) or { print('error during handling shutdown') }
-		// os.signal_opt(os.Signal.int, signal_handler) or { print('error during handling reboot') }
-		// go handle_zombie()
+	if _likely_(servicetype == VigProcessType.sys_init) {
+
 	} else {
-		os.signal_opt(os.Signal.usr1, signal_handler_noninit) or { print('exited') }
-		os.signal_opt(os.Signal.int, signal_handler_noninit) or { print('exited') }
+		C.prctl(syscall.pr_set_child_subreaper)
 	}
 
 	mut v_s := &vig_services
 	// load service files
-	if _likely_(is_system_init) {
+	if _likely_(servicetype == VigProcessType.sys_init) {
 		os.walk(service_dir, fn [mut v_s] (s string) {
 			walk_service_dir(s, mut v_s)
 		})
@@ -121,7 +102,8 @@ fn main() {
 		println('hi im function')
 	})
 	qevloop.add_signal(os.Signal.int, fn () {
-		println('hi im function 2')
+		println('reboot anything!!!')
+		exit(0) //temp
 	})
 	qevloop.add_signal(os.Signal.chld, fn [mut v_s] () {
 		sigchld_handler(mut v_s)

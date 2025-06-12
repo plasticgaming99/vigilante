@@ -178,49 +178,7 @@ fn (mut v_s_m map[string]VigService) start_service(st string) {
 	}
 }
 
-// Start SERVICE, previous implement!! should removed with gc sections!!
-fn (mut v_s_m map[string]VigService) start_service_recursive(str string) {
-	mut s := str
-	if str.contains('vt_') {
-		s = str.after('vt_')
-	}
-	if v_s_m[s].service.depends_on.len != 0 {
-		for i := 0; i < v_s_m[s].service.depends_on.len; i++ {
-			v_s_m.start_service_recursive(v_s_m[s].service.depends_on[i])
-		}
-	}
+// stops recursively
+fn (mut v_s_m map[string]VigService) stop_service(svname string) {
 
-	// TODO: rewrite,
-	if v_s_m[s].service.depends_ms.len != 0 {
-		for i := 0; i < v_s_m[s].service.depends_ms.len; i++ {
-			v_s_m.start_service_recursive(v_s_m[s].service.depends_ms[i])
-		}
-	}
-
-	if v_s_m[s].service.command != '' {
-		v_s_m[s].start_process(ServiceReason.dependency)
-	}
-
-	match v_s_m[s].info.name.after('.') {
-		'target' {
-			println('reached target ${v_s_m[s].info.name}')
-		}
-		'service' {
-			println('starting service ${v_s_m[s].info.name}')
-		}
-		'mount' {
-			println('mounted ${v_s_m[s].info.name}')
-		}
-		else {
-			println('runned unknown ${v_s_m[s].info.name}')
-		}
-	}
-
-	wf_s := v_s_m.find_waits_for(s)
-	if 0 < wf_s.len {
-		// println('starting waits_for services')
-		for _, st in wf_s {
-			v_s_m.start_service_recursive(st)
-		}
-	}
 }

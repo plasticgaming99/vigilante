@@ -23,7 +23,7 @@ pub fn logsimple(svcname string) {
 			println('mounted ${svcname}')
 		}
 		else {
-			println('runned unknown ${svcname}')
+			println('ran unknown ${svcname}')
 		}
 	}
 }

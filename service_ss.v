@@ -76,18 +76,22 @@ fn (mut v_s_m map[string]VigService) merge_required_by() {
 // Enter path of command! It will supervised with event loop.
 // why this fn exists? to make async-starting easier.
 fn (mut v_s VigService) start_process(reason ServiceReason) {
-	cmd := v_s.service.command
-	mut args := []string{}
-	if v_s.service.args != '' {
+	cmd_s := v_s.service.command
+	mut cmd := cmd_s.split(' ')
+	if cmd.len > 1 {
 		replacer := [
 			'\$VIG_PID',
 			os.getpid().str(),
 		]
-		args = v_s.service.args.split(' ').map(it.replace_each(replacer))
+		cmd = cmd.map(it.replace_each(replacer))
 	}
 	pid := os.fork()
 	if pid == 0 {
-		os.execvp(cmd, args) or {
+		mut args := []string{}
+		if cmd.len > 1 {
+			args = cmd[1..]
+		}
+		os.execvp(cmd[0], args) or {
 			println('Failed to exec')
 			exit(0)
 		}
@@ -97,6 +101,7 @@ fn (mut v_s VigService) start_process(reason ServiceReason) {
 }
 
 // Start SERVICE, DFS, main implementation
+@[direct_array_access]
 fn (mut v_s_m map[string]VigService) start_service(st string) {
 	mut str := st
 	mut graph := map[string][]string{}
@@ -107,20 +112,22 @@ fn (mut v_s_m map[string]VigService) start_service(st string) {
 	for k, v in v_s_m {
 		// depends on
 		for dep in v.service.depends_on {
-			if dep in v_s_m {
+			mut depname := dep
+			if depname.contains('vt_') {
+				depname = depname.after('vt_')
+			}
+			if depname in v_s_m {
 				graph[k] << dep
 			}
 		}
 		// depends ms
 		for dep in v.service.depends_ms {
-			if dep in v_s_m {
-				graph[k] << dep
+			mut depname := dep
+			if depname.contains('vt_') {
+				depname = depname.after('vt_')
 			}
-		}
-		// waits for
-		for waits in v_s_m.find_waits_for(k) {
-			if waits in v_s_m {
-				graph[k] << waits
+			if depname in v_s_m {
+				graph[k] << dep
 			}
 		}
 	}
@@ -142,6 +149,12 @@ fn (mut v_s_m map[string]VigService) start_service(st string) {
 			stack.pop()
 			continue
 		}
+
+		for val in v_s_m.find_waits_for(current) {
+			stack.insert(stack.len - 1, val)
+			continue
+		}
+
 		instack[current] = true
 		mut processed_all := true
 
@@ -169,8 +182,8 @@ fn (mut v_s_m map[string]VigService) start_service(st string) {
 			servname = servname.after('vt_')
 		}
 		if servname in v_s_m {
-			if v_s_m[serv].service.command != '' {
-				v_s_m[serv].start_process(.dependency)
+			if v_s_m[servname].service.command != '' {
+				v_s_m[servname].start_process(.dependency)
 			}
 		}
 		logsimple(servname)
@@ -180,5 +193,4 @@ fn (mut v_s_m map[string]VigService) start_service(st string) {
 
 // stops recursively
 fn (mut v_s_m map[string]VigService) stop_service(svname string) {
-
 }

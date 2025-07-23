@@ -1,4 +1,16 @@
+# compiler output
+a.out
 vig
 vigilante
+vigctl/vigctl
 v.c
+
+# user-dependant settings
 .vscode
+
+# profiles
+default*.profraw
+default.profdata
+perf.data
+perf.data.old
+perf.fdata

@@ -43,6 +43,7 @@ fn main() {
 	mut servicetype := VigProcessType.user_serv
 	mut service_dir := '/etc/vigilante.d/boot.d'
 	mut vig_services := map[string]VigService{}
+	mut svc_dir_override := false
 
 	// global-variable-avoiding-zone end
 
@@ -62,8 +63,9 @@ fn main() {
 				if i + 1 > os.args.len {
 					println('--service-dir/-d requires an argument')
 				}
-				if os.args[i + 1] != '\0' {
+				if os.args.len >= i + 1 {
 					service_dir = os.args[i + 1]
+					svc_dir_override = true
 					i++
 				}
 			}
@@ -73,9 +75,12 @@ fn main() {
 	}
 
 	if _likely_(servicetype == VigProcessType.sys_init) {
-
 	} else {
 		C.prctl(syscall.pr_set_child_subreaper)
+	}
+
+	if servicetype == VigProcessType.sys_serv && !svc_dir_override {
+		service_dir = '/usr/vigilante.d/system.d'
 	}
 
 	mut v_s := &vig_services
@@ -102,8 +107,8 @@ fn main() {
 		println('hi im function')
 	})
 	qevloop.add_signal(os.Signal.int, fn () {
-		println('reboot anything!!!')
-		exit(0) //temp
+		println('reboot everything!!!')
+		exit(0) // temp
 	})
 	qevloop.add_signal(os.Signal.chld, fn [mut v_s] () {
 		sigchld_handler(mut v_s)

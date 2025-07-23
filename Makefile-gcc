@@ -1,0 +1,15 @@
+CC = gcc
+LD = ld.bfd
+CFLAGS = -O3 -march=native -pipe \
+         -flto -static-pie -fstack-protector -fPIC
+         
+LDFLAGS = -fPIE -static-pie -O3 -flto -fuse-ld=bfd -Wl,-O2,--emit-relocs,--discard-none
+
+all:
+	v . -gc none -d no_segfault_handler -fast-math -cc "$(CC)" -cflags "$(CFLAGS)" -ldflags "$(LDFLAGS)"
+
+#prof-opt:
+#	v . -gc none -d no_segfault_handler -fast-math -cc "$(CC)" -cflags "$(CFLAGS) -fcs-profile-generate"
+#	./vigilante -s -d ./testfiles || true
+#	llvm-profdata merge --output=default.profdata default*.profraw
+#	v . -gc none -d no_segfault_handler -fast-math -cc "$(CC)" -cflags "$(CFLAGS) -fprofile-use=$(PWD)/default.profdata"

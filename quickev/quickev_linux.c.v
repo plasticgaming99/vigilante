@@ -6,6 +6,7 @@ module quickev
 
 import os
 import syscall
+import net.unix
 
 #include <unistd.h>
 #include <signal.h>
@@ -15,28 +16,20 @@ import syscall
 // max event
 const maxevent = 512
 
-@[packed]
 struct SignalWatcher {
 	callback fn () @[required]
 	signal   os.Signal
 }
 
-// free
-fn (mut swt SignalWatcher) free() {
-	unsafe {
-		free(swt.callback)
-		free(swt.signal)
-	}
-}
-
 // loop structure.
-@[packed]
 struct QevLoop {
 mut:
 	sigwatch      []SignalWatcher
 	signalfd_mask syscall.SigSetFd
 	sfdepollev    C.epoll_event
 	signalfd      int
+	generalfd     []int
+	generalfdcb   map[int]fn ([]byte)
 	epollfd       int
 }
 
@@ -96,8 +89,9 @@ pub fn (ql &QevLoop) run() {
 			exit(1)
 		}
 		for i := 0; i < eventc; i++ {
-			match eventbuf[i].data.fd {
-				ql.signalfd {
+			recv_fd := eventbuf[i].data.fd
+			match true {
+				recv_fd == ql.signalfd {
 					sfds := C.signalfd_siginfo{}
 					C.read(ql.signalfd, &sfds, sizeof(sfds))
 					// don't confuse, sigwatch is SigWatcher.
@@ -107,6 +101,7 @@ pub fn (ql &QevLoop) run() {
 						}
 					}
 				}
+				// recv_fd in ql.
 				else {
 					println('mystery')
 					continue

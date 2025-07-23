@@ -1,0 +1,5 @@
+[service]
+#command = "/usr/bin/dbus-daemon --session --nofork --nopidfile --print-address=2"
+
+waits_for = "networking.target"
+ready_notify = { pipefd = 2 }

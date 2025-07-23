@@ -11,11 +11,17 @@ mut:
 }
 
 @[heap]
+struct ReadyNotifyType {
+pub mut:
+	pipefd  int
+	pipevar string
+}
+
+@[heap]
 pub struct VigServiceService {
 mut:
 	type        string   // type of service! process, fork, oneshot, internal
-	command     string   // name of command to start! only one.
-	args        string   // arguments. may be separated
+	command     string  // I effort for parse like shell
 	after       []string // N/A yet
 	before      []string // N/A yet
 	depends_on  []string // wait for service to start successfully
@@ -24,11 +30,16 @@ mut:
 	then_start  []string // start services after exited successfully
 	required_by []string // it's needed because vig has build-in mount
 
-	pid_file     string // enter filepath, if file exists, record pid, then mark service runnin'
-	start_string string // find string to detect the service started successfully
+	pid_file     string  // enter filepath, if file exists, record pid, then mark service runnin'
+	start_string string  // find string to detect the service started successfully
+	ready_notify ReadyNotifyType // S6 supervisioning suite - like activation
 
+	restart_limit    int  // -1 to disable, 0 will not try to restart
+	restart_smooth   bool // like dinit does not restart dependants
 	runs_on_console  bool // start on console. with stdio.
 	start_on_console bool // start on console. exclusively.
+
+	set_var []string // merge variables
 }
 
 @[heap]
@@ -60,7 +71,7 @@ mut:
 	pid          int
 	state        ServiceState
 	reason       ServiceReason
-	triggered_by string
+	triggered_by []string
 }
 
 // service file

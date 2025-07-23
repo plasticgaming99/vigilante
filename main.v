@@ -63,7 +63,7 @@ fn main() {
 				if i + 1 > os.args.len {
 					println('--service-dir/-d requires an argument')
 				}
-				if os.args.len >= i + 1 {
+				if os.args.len > i + 1 {
 					service_dir = os.args[i + 1]
 					svc_dir_override = true
 					i++

@@ -21,7 +21,7 @@ pub mut:
 pub struct VigServiceService {
 mut:
 	type        string   // type of service! process, fork, oneshot, internal
-	command     string  // I effort for parse like shell
+	command     string   // I effort for parse this like shell
 	after       []string // N/A yet
 	before      []string // N/A yet
 	depends_on  []string // wait for service to start successfully
@@ -30,8 +30,8 @@ mut:
 	then_start  []string // start services after exited successfully
 	required_by []string // it's needed because vig has build-in mount
 
-	pid_file     string  // enter filepath, if file exists, record pid, then mark service runnin'
-	start_string string  // find string to detect the service started successfully
+	pid_file     string          // enter filepath, if file exists, record pid, then mark service runnin'
+	start_string string          // find string to detect the service started successfully
 	ready_notify ReadyNotifyType // S6 supervisioning suite - like activation
 
 	restart_limit    int  // -1 to disable, 0 will not try to restart
@@ -55,6 +55,7 @@ mut:
 
 enum ServiceState {
 	stopped
+	pending
 	starting
 	running
 	failed
@@ -72,6 +73,7 @@ mut:
 	state        ServiceState
 	reason       ServiceReason
 	triggered_by []string
+	//dependent    []string
 }
 
 // service file

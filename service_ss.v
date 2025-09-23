@@ -72,11 +72,55 @@ fn (mut v_s_m map[string]VigService) merge_required_by() {
 	}
 }
 
-// Start PROCESS
-// Enter path of command! It will supervised with event loop.
-// why this fn exists? to make async-starting easier.
-fn (mut v_s VigService) start_process(reason ServiceReason) {
-	cmd_s := v_s.service.command
+fn (v_s_m &map[string]VigService) find_depends(svcname string) []string {
+	mut ret := []string{}
+	for k, v in v_s_m {
+		for s in v.service.depends_on {
+			if s.contains(svcname) {
+				ret << k
+				break
+			}
+		}
+		for s in v.service.depends_ms {
+			if s.contains(svcname) {
+				ret << k
+				break
+			}
+		}
+	}
+	return ret
+}
+
+fn (mut v_s_m map[string]VigService) is_dependency_started(svc string) bool {
+	mut dep := v_s_m[svc].service.depends_on.clone()
+	dep << v_s_m[svc].service.depends_ms
+	for i, _ in dep {
+		if dep[i].starts_with("vt_") {
+			dep[i] = dep[i].after("vt_")
+		}
+	}
+	for _, s in dep {
+		if v_s_m[s].internal.state != .running {
+			return false
+		}
+	}
+	return true
+}
+
+pub fn (mut v_s_m map[string]VigService) service_started(svc string) {
+	v_s_m[svc].internal.state = .running
+	for s in v_s_m.find_depends(svc) {
+		v_s_m.start_service(s)
+	}
+}
+
+// start process, handle internal too
+fn (mut v_s_m map[string]VigService) start_process(svc string, reason ServiceReason) {
+	if v_s_m[svc].service.command == '' {
+		return
+	}
+
+	cmd_s := v_s_m[svc].service.command
 	mut cmd := cmd_s.split(' ')
 	if cmd.len > 1 {
 		replacer := [
@@ -85,24 +129,64 @@ fn (mut v_s VigService) start_process(reason ServiceReason) {
 		]
 		cmd = cmd.map(it.replace_each(replacer))
 	}
+
 	pid := os.fork()
 	if pid == 0 {
 		mut args := []string{}
 		if cmd.len > 1 {
-			args = cmd[1..]
+			args = unsafe { cmd[1..] }
 		}
 		os.execvp(cmd[0], args) or {
 			println('Failed to exec')
 			exit(0)
 		}
 	}
-	v_s.internal.pid = pid
+	v_s_m[svc].internal.pid = pid
 	return
+}
+
+fn (mut v_s_m map[string]VigService) start_service(svc string) {
+	if !v_s_m.is_dependency_started(svc) {
+		return
+	}
+
+	match v_s_m[svc].service.type {
+		"process", "fork", "oneshot" {
+			logsimple(svc)
+			v_s_m.start_process(svc, .dependency)
+		}
+		"internal" {
+			logsimple(svc)
+			v_s_m.service_started(svc)
+		}
+		else {}
+	}
+	/*if v_s_m[svc].internal.state == .stopped {
+		v_s_m[svc].internal.state = .pending
+	}
+	if v_s_m.is_dependency_started(svc) {
+		if v_s_m[svc].service.type == 'internal' {
+			println('>> vig >> reached internal target ${svc}')
+			v_s_m[svc].internal.state = .running
+			deps := v_s_m.find_depends(svc)
+			println("${svc} ${deps}")
+			for _, s in deps {
+				v_s_m.start_service(s)
+			}
+			v_s_m.service_started(svc)
+			return
+		} else if v_s_m[svc].service.type == 'process' || v_s_m[svc].service.type == 'fork' {
+			println('>> vig >> starting service ')
+			v_s_m.start_process(svc, .dependency)
+		}
+	} else {
+		println('> vig > service ${svc} is pending to start')
+	}*/
 }
 
 // Start SERVICE, DFS, main implementation
 @[direct_array_access]
-fn (mut v_s_m map[string]VigService) start_service(st string) {
+fn (mut v_s_m map[string]VigService) start_service_tree(st string) {
 	mut str := st
 	mut graph := map[string][]string{}
 	for k, _ in v_s_m {
@@ -136,8 +220,8 @@ fn (mut v_s_m map[string]VigService) start_service(st string) {
 	mut instack := map[string]bool{}
 	mut stack := []string{}
 
-	println('graph!!! ${graph}')
-	println('maybe ${str}')
+	// println('graph!!! ${graph}')
+	// println('maybe ${str}')
 
 	stack << str
 
@@ -182,11 +266,9 @@ fn (mut v_s_m map[string]VigService) start_service(st string) {
 			servname = servname.after('vt_')
 		}
 		if servname in v_s_m {
-			if v_s_m[servname].service.command != '' {
-				v_s_m[servname].start_process(.dependency)
-			}
+			//println(servname)
+			v_s_m.start_service(servname)
 		}
-		logsimple(servname)
 		processed[servname] = true
 	}
 }

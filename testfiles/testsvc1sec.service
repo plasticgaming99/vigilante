@@ -1,0 +1,8 @@
+[info]
+description = "example!!"
+
+[service]
+type = "oneshot"
+command = "./testprogs/testsvc1sec/testsvc1sec"
+required_by = "networking.target"
+depends_on = "rootfs.mount"

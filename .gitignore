@@ -1,9 +1,11 @@
 # compiler output
 a.out
 vig
-vigilante
-vigctl/vigctl
-v.c
+/vigilante
+/vigctl/vigctl
+/v.c
+/testprogs/*/v.c
+/testprogs/testsvc1sec/testsvc1sec
 
 # user-dependant settings
 .vscode

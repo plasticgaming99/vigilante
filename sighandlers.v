@@ -29,7 +29,7 @@ fn sigchld_handler(mut v_s_m map[string]VigService) {
 				"oneshot" {
 					match exstat {
 						0 {
-							v_s_m[sname].internal.state = ServiceState.running
+							v_s_m.service_started(sname)
 						}
 						else {
 							v_s_m[sname].internal.state = ServiceState.failed

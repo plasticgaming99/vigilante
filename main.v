@@ -36,6 +36,7 @@ enum VigProcessType {
 	user_serv
 }
 
+@[direct_array_access]
 fn main() {
 	// println(load_service_file("./test.service") or { err.str() })
 	// exit(1)
@@ -90,7 +91,7 @@ fn main() {
 			walk_service_dir(s, mut v_s)
 		})
 	}
-	println(vig_services.str())
+	//println(vig_services.str())
 
 	// find default target (entry point!!)
 	// priority ordered by: default.target(best) -> default -> boot
@@ -117,13 +118,13 @@ fn main() {
 		println('Error during initializing event loop!')
 		exit(1)
 	}
-	println('epoll fd:${qevloop.get_epollfd()}')
-	println('signal fd:${qevloop.get_signalfd()}')
+	//println('epoll fd:${qevloop.get_epollfd()}')
+	//println('signal fd:${qevloop.get_signalfd()}')
 	// st := os.input('one cmd')
 	// os.execute(st)
 	v_s.merge_required_by()
 	println('welcome to linux')
-	v_s.start_service('default.target')
+	v_s.start_service_tree('default.target')
 
 	qevloop.run()
 

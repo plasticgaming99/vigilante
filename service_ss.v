@@ -149,6 +149,9 @@ fn (mut v_s_m map[string]VigService) start_service(svc string) {
 	if !v_s_m.is_dependency_started(svc) {
 		return
 	}
+	if v_s_m[svc].internal.state == .running {
+		return
+	}
 
 	match v_s_m[svc].service.type {
 		"process", "fork", "oneshot" {

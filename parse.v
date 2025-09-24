@@ -69,7 +69,7 @@ enum ServiceReason {
 @[heap]
 struct VigServiceInternal {
 mut:
-	pid          int
+	pid          int = -2
 	state        ServiceState
 	reason       ServiceReason
 	triggered_by []string

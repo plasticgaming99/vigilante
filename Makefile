@@ -13,7 +13,7 @@ ifeq ($(POLLY),1)
 endif
 
 all:
-	v . -gc none -d no_segfault_handler -fast-math -cc "$(CC)" -cflags "$(CFLAGS)" -ldflags "$(LDFLAGS)"
+	v . -d no_segfault_handler -fast-math -cc "$(CC)" -cflags "$(CFLAGS)" -ldflags "$(LDFLAGS)"
 
 prof-opt:
 	v . -gc none -d no_segfault_handler -fast-math -cc "$(CC)" -cflags "$(CFLAGS) -fcs-profile-generate"

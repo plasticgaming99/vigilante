@@ -65,7 +65,7 @@ fn (mut v_s_m map[string]VigService) merge_required_by() {
 				for i := 0; i < req.len; i++ {
 					req[i] = 'vt_' + req[i]
 				}
-				println('merged ${req}')
+				println('merged virtual target ${req}')
 				v_s_m[k].service.depends_on << req
 			}
 		}
@@ -110,6 +110,11 @@ fn (mut v_s_m map[string]VigService) is_dependency_started(svc string) bool {
 pub fn (mut v_s_m map[string]VigService) service_started(svc string) {
 	v_s_m[svc].internal.state = .running
 	for s in v_s_m.find_depends(svc) {
+		if v_s_m[s].internal.state == .pending {
+			v_s_m.start_service(s)
+		}
+	}
+	for s in v_s_m.find_waits_for(svc) {
 		v_s_m.start_service(s)
 	}
 }
@@ -147,6 +152,7 @@ fn (mut v_s_m map[string]VigService) start_process(svc string, reason ServiceRea
 
 fn (mut v_s_m map[string]VigService) start_service(svc string) {
 	if !v_s_m.is_dependency_started(svc) {
+		v_s_m[svc].internal.state = .pending
 		return
 	}
 	if v_s_m[svc].internal.state == .running {
@@ -164,27 +170,6 @@ fn (mut v_s_m map[string]VigService) start_service(svc string) {
 		}
 		else {}
 	}
-	/*if v_s_m[svc].internal.state == .stopped {
-		v_s_m[svc].internal.state = .pending
-	}
-	if v_s_m.is_dependency_started(svc) {
-		if v_s_m[svc].service.type == 'internal' {
-			println('>> vig >> reached internal target ${svc}')
-			v_s_m[svc].internal.state = .running
-			deps := v_s_m.find_depends(svc)
-			println("${svc} ${deps}")
-			for _, s in deps {
-				v_s_m.start_service(s)
-			}
-			v_s_m.service_started(svc)
-			return
-		} else if v_s_m[svc].service.type == 'process' || v_s_m[svc].service.type == 'fork' {
-			println('>> vig >> starting service ')
-			v_s_m.start_process(svc, .dependency)
-		}
-	} else {
-		println('> vig > service ${svc} is pending to start')
-	}*/
 }
 
 // Start SERVICE, DFS, main implementation
@@ -200,7 +185,7 @@ fn (mut v_s_m map[string]VigService) start_service_tree(st string) {
 		// depends on
 		for dep in v.service.depends_on {
 			mut depname := dep
-			if depname.contains('vt_') {
+			if depname.starts_with('vt_') {
 				depname = depname.after('vt_')
 			}
 			if depname in v_s_m {
@@ -210,7 +195,7 @@ fn (mut v_s_m map[string]VigService) start_service_tree(st string) {
 		// depends ms
 		for dep in v.service.depends_ms {
 			mut depname := dep
-			if depname.contains('vt_') {
+			if depname.starts_with('vt_') {
 				depname = depname.after('vt_')
 			}
 			if depname in v_s_m {
@@ -237,17 +222,12 @@ fn (mut v_s_m map[string]VigService) start_service_tree(st string) {
 			continue
 		}
 
-		for val in v_s_m.find_waits_for(current) {
-			stack.insert(stack.len - 1, val)
-			continue
-		}
-
 		instack[current] = true
 		mut processed_all := true
 
 		for dep in graph[current] {
 			mut depname := dep
-			if depname.contains('vt_') {
+			if depname.starts_with('vt_') {
 				depname = depname.after('vt_')
 			}
 			if dep !in processed && dep !in instack {
@@ -265,7 +245,7 @@ fn (mut v_s_m map[string]VigService) start_service_tree(st string) {
 
 	for serv in process.keys() {
 		mut servname := serv
-		if servname.contains('vt_') {
+		if servname.starts_with('vt_') {
 			servname = servname.after('vt_')
 		}
 		if servname in v_s_m {

@@ -4,5 +4,4 @@ description = "exit to measure exit time"
 [service]
 type = "oneshot"
 command = "busybox kill -s INT $VIG_PID"
-after = "default.target"
-depends_on = "default.target"
+waits_for = "default.target"

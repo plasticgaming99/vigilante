@@ -6,7 +6,6 @@ module quickev
 
 import os
 import syscall
-import net.unix
 
 #include <unistd.h>
 #include <signal.h>
@@ -28,8 +27,7 @@ mut:
 	signalfd_mask syscall.SigSetFd
 	sfdepollev    C.epoll_event
 	signalfd      int
-	generalfd     []int
-	generalfdcb   map[int]fn ([]byte)
+	generalfd     map[int]fn ([]u8)
 	epollfd       int
 }
 
@@ -50,6 +48,12 @@ pub fn (mut ql QevLoop) add_signal(sig os.Signal, cb fn ()) {
 	}
 }
 
+// set generalfd
+// it can be used for http-like what
+pub fn (mut ql QevLoop) add_generalfd(fd int, cb fn ([]u8)) {
+	ql.generalfd[fd] = cb
+}
+
 // This method registers signalfd
 // please do not add signal to watch after this method
 pub fn (mut ql QevLoop) finalize_signal() ! {
@@ -65,9 +69,19 @@ pub fn (mut ql QevLoop) finalize_signal() ! {
 	}
 	ql.signalfd = sfd
 	ql.signalfd_mask = ssfd
-	ql.sfdepollev.events = u32(C.EPOLLIN)
+	ql.sfdepollev.events = u32(C.EPOLLIN|C.EPOLLET)
 	mut e_ev := &ql.sfdepollev
 	syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_ADD, ql.signalfd, mut e_ev)
+}
+
+pub fn (mut ql QevLoop) finalize_generalfd() ! {
+	for fd in ql.generalfd.keys() {
+		mut ev := C.epoll_event{}
+		ev.events = u32(C.EPOLLIN|C.EPOLLET)
+		ev.data.fd = fd
+		C.fcntl(fd, C.F_SETFL, C.O_NONBLOCK)
+		syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_ADD, fd, mut ev)
+	}
 }
 
 pub fn (ql &QevLoop) get_signalfd() int {
@@ -90,6 +104,7 @@ pub fn (ql &QevLoop) run() {
 		}
 		for i := 0; i < eventc; i++ {
 			recv_fd := eventbuf[i].data.fd
+			println("event from ${recv_fd} length ${eventc}")
 			match true {
 				recv_fd == ql.signalfd {
 					sfds := C.signalfd_siginfo{}
@@ -100,6 +115,16 @@ pub fn (ql &QevLoop) run() {
 							ql.sigwatch[i2].callback()
 						}
 					}
+				}
+				recv_fd in ql.generalfd.keys() {
+					//mut buf := [8192]u8{}
+					//ib := C.read(recv_fd, &buf, sizeof(buf))
+					cfd := C.accept(recv_fd, voidptr(0), 0)
+					st, i2 := os.fd_read(cfd, 1024)
+					println(c_error_number_str(C.errno))
+					println("read ${i2}")
+					ql.generalfd[recv_fd](st.bytes())
+					C.close(cfd)
 				}
 				// recv_fd in ql.
 				else {

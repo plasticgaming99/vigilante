@@ -118,6 +118,22 @@ fn main() {
 		println('Error during initializing event loop!')
 		exit(1)
 	}
+
+	// let's make unix domain socket
+	uds := syscall.create_unix_domain_socket("/tmp/vigctl.socket") or {
+		println("error binding socket")
+		exit(1)
+	}
+
+	qevloop.add_generalfd(uds, fn (b []u8) {
+		println(b.bytestr())
+	})
+
+	qevloop.finalize_generalfd() or { 
+		println('Error during initializing event loop!')
+		exit(1)
+	}
+
 	//println('epoll fd:${qevloop.get_epollfd()}')
 	//println('signal fd:${qevloop.get_signalfd()}')
 	// st := os.input('one cmd')

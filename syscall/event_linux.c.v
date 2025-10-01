@@ -15,7 +15,7 @@ const sys_epoll_ctl = C.__NR_epoll_ctl
 const sys_epoll_wait = C.__NR_epoll_wait
 const sys_epoll_pwait = C.__NR_epoll_pwait
 const sys_signalfd = C.__NR_signalfd
-const sys_timerfd = C.__NR_timerfd
+const sys_timerfd_create = C.__NR_timerfd_create
 const sys_rt_sigprocmask = C.__NR_rt_sigprocmask
 
 // todo: all
@@ -111,5 +111,12 @@ pub fn signalfd(fd int, mask SigSetFd, flags int) int {
 	return C.syscall(sys_signalfd, fd, &mask, sizeof(mask.val), flags)
 }
 
-pub fn timerfd(fd int) {
+pub enum Clock {
+	realtime = 0
+	monotonic = 1
+}
+
+// it might returns fd, or error -1
+pub fn timerfd_create(clock Clock, flags int) int {
+	return C.syscall(sys_timerfd_create, int(clock), flags)
 }

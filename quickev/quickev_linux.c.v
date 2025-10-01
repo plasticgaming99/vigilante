@@ -26,9 +26,10 @@ mut:
 	sigwatch      []SignalWatcher
 	signalfd_mask syscall.SigSetFd
 	sfdepollev    C.epoll_event
-	signalfd      int
-	generalfd     map[int]fn ([]u8)
-	epollfd       int
+	signalfd      int = -1
+	timerfd       int = -1
+	generalfd     map[int]fn (fd int)
+	epollfd       int = -1
 }
 
 pub fn init_loop() !QevLoop {
@@ -36,6 +37,10 @@ pub fn init_loop() !QevLoop {
 		epollfd: syscall.epoll_create1(C.O_CLOEXEC) or { return err }
 	}
 	return ql
+}
+
+pub fn (ql &QevLoop) get_epollfd() int {
+	return ql.epollfd
 }
 
 // add_signal adds signal handling to event loop
@@ -48,15 +53,12 @@ pub fn (mut ql QevLoop) add_signal(sig os.Signal, cb fn ()) {
 	}
 }
 
-// set generalfd
-// it can be used for http-like what
-pub fn (mut ql QevLoop) add_generalfd(fd int, cb fn ([]u8)) {
-	ql.generalfd[fd] = cb
+pub fn (ql &QevLoop) get_signalfd() int {
+	return ql.signalfd
 }
 
-// This method registers signalfd
-// please do not add signal to watch after this method
-pub fn (mut ql QevLoop) finalize_signal() ! {
+// this method will automatically executed
+fn (mut ql QevLoop) finalize_signal() ! {
 	mut ssfd := syscall.new_sigset_fd()
 	for swt in ql.sigwatch {
 		ssfd.add(int(swt.signal))
@@ -74,26 +76,38 @@ pub fn (mut ql QevLoop) finalize_signal() ! {
 	syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_ADD, ql.signalfd, mut e_ev)
 }
 
-pub fn (mut ql QevLoop) finalize_generalfd() ! {
-	for fd in ql.generalfd.keys() {
-		mut ev := C.epoll_event{}
-		ev.events = u32(C.EPOLLIN|C.EPOLLET)
-		ev.data.fd = fd
-		C.fcntl(fd, C.F_SETFL, C.O_NONBLOCK)
-		syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_ADD, fd, mut ev)
-	}
+// set generalfd
+// it can be used for http-like what
+pub fn (mut ql QevLoop) add_generalfd(fd int, cb fn (int)) {
+	ql.generalfd[fd] = cb
+
+	mut ev := C.epoll_event{}
+	ev.events = u32(C.EPOLLIN|C.EPOLLET)
+	ev.data.fd = fd
+	C.fcntl(fd, C.F_SETFL, C.O_NONBLOCK)
+	syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_ADD, fd, mut ev)
 }
 
-pub fn (ql &QevLoop) get_signalfd() int {
-	return ql.signalfd
+// timer does not have to finalyze
+// and it can ne used
+pub fn init_timer() ! {
+
 }
 
-pub fn (ql &QevLoop) get_epollfd() int {
-	return ql.epollfd
+pub fn add_oneshot_timer() {
+
+}
+
+pub fn add_sustain_timer() {
+
 }
 
 // Start main loop
-pub fn (ql &QevLoop) run() {
+pub fn (mut ql QevLoop) run() {
+	if ql.sigwatch.len > 0 {
+		ql.finalize_signal() or {  }
+	}
+
 	for {
 		mut eventbuf := [C.epoll_event{}].repeat(maxevent)
 		mut ev := &eventbuf
@@ -102,9 +116,9 @@ pub fn (ql &QevLoop) run() {
 			println('error, epoll_wait')
 			exit(1)
 		}
-		for i := 0; i < eventc; i++ {
-			recv_fd := eventbuf[i].data.fd
-			println("event from ${recv_fd} length ${eventc}")
+		for mli := 0; mli < eventc; mli++ {
+			recv_fd := eventbuf[mli].data.fd
+
 			match true {
 				recv_fd == ql.signalfd {
 					sfds := C.signalfd_siginfo{}
@@ -117,13 +131,8 @@ pub fn (ql &QevLoop) run() {
 					}
 				}
 				recv_fd in ql.generalfd.keys() {
-					//mut buf := [8192]u8{}
-					//ib := C.read(recv_fd, &buf, sizeof(buf))
 					cfd := C.accept(recv_fd, voidptr(0), 0)
-					st, i2 := os.fd_read(cfd, 1024)
-					println(c_error_number_str(C.errno))
-					println("read ${i2}")
-					ql.generalfd[recv_fd](st.bytes())
+					ql.generalfd[recv_fd](cfd)
 					C.close(cfd)
 				}
 				// recv_fd in ql.

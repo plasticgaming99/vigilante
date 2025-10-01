@@ -12,7 +12,7 @@ mut:
 
 @[heap]
 struct ReadyNotifyType {
-pub mut:
+mut:
 	pipefd  int
 	pipevar string
 }
@@ -20,15 +20,16 @@ pub mut:
 @[heap]
 pub struct VigServiceService {
 mut:
-	type        string   // type of service! process, fork, oneshot, internal
-	command     string   // I effort for parse this like shell
-	after       []string // N/A yet
-	before      []string // N/A yet
-	depends_on  []string // wait for service to start successfully
-	depends_ms  []string // depends_on, but don't stop the service when marked services are stopped
-	waits_for   []string // runned after the process started.
-	then_start  []string // start services after exited successfully
-	required_by []string // it's needed because vig has build-in mount
+	type        string        // type of service! process, fork, oneshot, internal
+	command     string        // I effort for parse this like shell
+	timeout     int = 30      // seconds
+	after       []string      // N/A yet
+	before      []string      // N/A yet
+	depends_on  []string      // wait for service to start successfully
+	depends_ms  []string      // depends_on, but don't stop the service when marked services are stopped
+	waits_for   []string      // runned after the process started.
+	then_start  []string      // start services after exited successfully
+	required_by []string      // it's needed because vig has build-in mount
 
 	pid_file     string          // enter filepath, if file exists, record pid, then mark service runnin'
 	start_string string          // find string to detect the service started successfully
@@ -79,11 +80,17 @@ mut:
 // service file
 @[heap]
 pub struct VigService {
-mut:
+pub mut:
 	info     VigServiceInfo
 	service  VigServiceService
 	mount    VigServiceMount
 	internal VigServiceInternal
+}
+
+@[heap]
+pub struct VigRegistry {
+pub mut:
+	vigsvcs map[string]VigService
 }
 
 fn load_service_file(fpath string) !VigService {

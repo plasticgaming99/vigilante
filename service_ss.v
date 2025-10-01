@@ -4,9 +4,9 @@ module main
 
 import os
 
-fn (v_s_m &map[string]VigService) find_after(svcname string) []string {
+fn (vr &VigRegistry) find_after(svcname string) []string {
 	mut ret := []string{}
-	for k, v in v_s_m {
+	for k, v in vr.vigsvcs {
 		for s in v.service.after {
 			if s.contains(svcname) {
 				ret << k
@@ -17,9 +17,9 @@ fn (v_s_m &map[string]VigService) find_after(svcname string) []string {
 	return ret
 }
 
-fn (v_s_m &map[string]VigService) find_before(svcname string) []string {
+fn (vr &VigRegistry) find_before(svcname string) []string {
 	mut ret := []string{}
-	for k, v in v_s_m {
+	for k, v in vr.vigsvcs {
 		for s in v.service.before {
 			if s.contains(svcname) {
 				ret << k
@@ -30,9 +30,9 @@ fn (v_s_m &map[string]VigService) find_before(svcname string) []string {
 	return ret
 }
 
-fn (v_s_m &map[string]VigService) find_waits_for(svcname string) []string {
+fn (vr &VigRegistry) find_waits_for(svcname string) []string {
 	mut ret := []string{}
-	for k, v in v_s_m {
+	for k, v in vr.vigsvcs {
 		for s in v.service.waits_for {
 			if s.contains(svcname) {
 				ret << k
@@ -43,9 +43,9 @@ fn (v_s_m &map[string]VigService) find_waits_for(svcname string) []string {
 	return ret
 }
 
-fn (v_s_m &map[string]VigService) find_required_by(svcname string) []string {
+fn (vr &VigRegistry) find_required_by(svcname string) []string {
 	mut ret := []string{}
-	for k, v in v_s_m {
+	for k, v in vr.vigsvcs {
 		for s in v.service.required_by {
 			if s.contains(svcname) {
 				ret << k
@@ -57,24 +57,24 @@ fn (v_s_m &map[string]VigService) find_required_by(svcname string) []string {
 }
 
 // merged with this.
-fn (mut v_s_m map[string]VigService) merge_required_by() {
-	for k, v in v_s_m {
-		mut req := v_s_m.find_required_by(k)
+fn (mut vr VigRegistry) merge_required_by() {
+	for k, v in vr.vigsvcs {
+		mut req := vr.find_required_by(k)
 		if req.len > 0 {
 			if !v.service.depends_on.contains('vt_' + k) {
 				for i := 0; i < req.len; i++ {
 					req[i] = 'vt_' + req[i]
 				}
 				println('merged virtual target ${req}')
-				v_s_m[k].service.depends_on << req
+				vr.vigsvcs[k].service.depends_on << req
 			}
 		}
 	}
 }
 
-fn (v_s_m &map[string]VigService) find_depends(svcname string) []string {
+fn (vr &VigRegistry) find_depends(svcname string) []string {
 	mut ret := []string{}
-	for k, v in v_s_m {
+	for k, v in vr.vigsvcs {
 		for s in v.service.depends_on {
 			if s.contains(svcname) {
 				ret << k
@@ -91,41 +91,49 @@ fn (v_s_m &map[string]VigService) find_depends(svcname string) []string {
 	return ret
 }
 
-fn (mut v_s_m map[string]VigService) is_dependency_started(svc string) bool {
-	mut dep := v_s_m[svc].service.depends_on.clone()
-	dep << v_s_m[svc].service.depends_ms
+fn (vr &VigRegistry) is_dependency_started(svc string) bool {
+	mut dep := vr.vigsvcs[svc].service.depends_on.clone()
+	dep << vr.vigsvcs[svc].service.depends_ms
 	for i, _ in dep {
 		if dep[i].starts_with("vt_") {
 			dep[i] = dep[i].after("vt_")
 		}
 	}
 	for _, s in dep {
-		if v_s_m[s].internal.state != .running {
+		if vr.vigsvcs[s].internal.state != .running {
 			return false
 		}
 	}
 	return true
 }
 
-pub fn (mut v_s_m map[string]VigService) service_started(svc string) {
-	v_s_m[svc].internal.state = .running
-	for s in v_s_m.find_depends(svc) {
-		if v_s_m[s].internal.state == .pending {
-			v_s_m.start_service(s)
+fn (mut vr VigRegistry) service_started(svc string) {
+	vr.vigsvcs[svc].internal.state = .running
+	for s in vr.find_depends(svc) {
+		if vr.vigsvcs[s].internal.state == .pending {
+			vr.start_service(s)
 		}
 	}
-	for s in v_s_m.find_waits_for(svc) {
-		v_s_m.start_service(s)
+	for s in vr.find_waits_for(svc) {
+		vr.start_service(s)
+	}
+}
+
+fn (mut vr VigRegistry) service_stopped(svc string) {
+	vr.vigsvcs[svc].internal.state = .stopped
+	for s in vr.find_depends(svc) {
+		if !vr.vigsvcs[s].service.restart_smooth {
+		}
 	}
 }
 
 // start process, handle internal too
-fn (mut v_s_m map[string]VigService) start_process(svc string, reason ServiceReason) {
-	if v_s_m[svc].service.command == '' {
+fn (mut vr VigRegistry) start_process(svc string, reason ServiceReason) {
+	if vr.vigsvcs[svc].service.command == '' {
 		return
 	}
 
-	cmd_s := v_s_m[svc].service.command
+	cmd_s := vr.vigsvcs[svc].service.command
 	mut cmd := cmd_s.split(' ')
 	if cmd.len > 1 {
 		replacer := [
@@ -146,27 +154,32 @@ fn (mut v_s_m map[string]VigService) start_process(svc string, reason ServiceRea
 			exit(0)
 		}
 	}
-	v_s_m[svc].internal.pid = pid
+	vr.vigsvcs[svc].internal.pid = pid
 	return
 }
 
-fn (mut v_s_m map[string]VigService) start_service(svc string) {
-	if !v_s_m.is_dependency_started(svc) {
-		v_s_m[svc].internal.state = .pending
+// stops process
+fn (vr &VigRegistry) stop_process(svc string) {
+	
+}
+
+fn (mut vr VigRegistry) start_service(svc string) {
+	if !vr.is_dependency_started(svc) {
+		vr.vigsvcs[svc].internal.state = .pending
 		return
 	}
-	if v_s_m[svc].internal.state == .running {
+	if vr.vigsvcs[svc].internal.state == .running {
 		return
 	}
 
-	match v_s_m[svc].service.type {
+	match vr.vigsvcs[svc].service.type {
 		"process", "fork", "oneshot" {
 			logsimple(svc)
-			v_s_m.start_process(svc, .dependency)
+			vr.start_process(svc, .dependency)
 		}
 		"internal" {
 			logsimple(svc)
-			v_s_m.service_started(svc)
+			vr.service_started(svc)
 		}
 		else {}
 	}
@@ -174,21 +187,21 @@ fn (mut v_s_m map[string]VigService) start_service(svc string) {
 
 // Start SERVICE, DFS, main implementation
 @[direct_array_access]
-fn (mut v_s_m map[string]VigService) start_service_tree(st string) {
+fn (mut vr VigRegistry) start_service_tree(st string) {
 	mut str := st
 	mut graph := map[string][]string{}
-	for k, _ in v_s_m {
+	for k, _ in vr.vigsvcs {
 		graph[k] = []string{}
 	}
 
-	for k, v in v_s_m {
+	for k, v in vr.vigsvcs {
 		// depends on
 		for dep in v.service.depends_on {
 			mut depname := dep
 			if depname.starts_with('vt_') {
 				depname = depname.after('vt_')
 			}
-			if depname in v_s_m {
+			if depname in vr.vigsvcs {
 				graph[k] << dep
 			}
 		}
@@ -198,7 +211,7 @@ fn (mut v_s_m map[string]VigService) start_service_tree(st string) {
 			if depname.starts_with('vt_') {
 				depname = depname.after('vt_')
 			}
-			if depname in v_s_m {
+			if depname in vr.vigsvcs {
 				graph[k] << dep
 			}
 		}
@@ -248,14 +261,19 @@ fn (mut v_s_m map[string]VigService) start_service_tree(st string) {
 		if servname.starts_with('vt_') {
 			servname = servname.after('vt_')
 		}
-		if servname in v_s_m {
+		if servname in vr.vigsvcs {
 			//println(servname)
-			v_s_m.start_service(servname)
+			vr.start_service(servname)
 		}
 		processed[servname] = true
 	}
 }
 
+// it stops services with some methods
+fn (vr &VigRegistry) stop_service(svname string) {
+
+}
+
 // stops recursively
-fn (mut v_s_m map[string]VigService) stop_service(svname string) {
+fn (vr &VigRegistry) stop_service_tree(svname string) {
 }

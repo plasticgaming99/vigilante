@@ -4,22 +4,22 @@ module main
 import syscall
 
 // SIGCHLD: reap zombies, help supervising services
-fn sigchld_handler(mut v_s_m map[string]VigService) {
+fn sigchld_handler(mut vr VigRegistry) {
 	for {
 		pid, stat := syscall.waitpid(-1, C.WNOHANG)
 		println('zombie reaped? ${pid}')
-		sname := v_s_m.pid_to_service_name(pid) or {"miss!"}
-		if v_s_m[sname].internal.pid == pid {
+		sname := vr.pid_to_service_name(pid) or {"miss!"}
+		if vr.vigsvcs[sname].internal.pid == pid {
 			exstat := C.WEXITSTATUS(stat)
 			println("status: ${exstat}")
-			match v_s_m[sname].service.type {
+			match vr.vigsvcs[sname].service.type {
 				"process" {
 					match exstat {
 						0 {
-							v_s_m[sname].internal.state = ServiceState.stopped
+							vr.vigsvcs[sname].internal.state = ServiceState.stopped
 						}
 						else {
-							v_s_m[sname].internal.state = ServiceState.failed
+							vr.vigsvcs[sname].internal.state = ServiceState.failed
 						}
 					}
 				}
@@ -29,10 +29,10 @@ fn sigchld_handler(mut v_s_m map[string]VigService) {
 				"oneshot" {
 					match exstat {
 						0 {
-							v_s_m.service_started(sname)
+							vr.service_started(sname)
 						}
 						else {
-							v_s_m[sname].internal.state = ServiceState.failed
+							vr.vigsvcs[sname].internal.state = ServiceState.failed
 						}
 					}
 				}

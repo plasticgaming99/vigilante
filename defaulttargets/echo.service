@@ -1,6 +1,6 @@
 # this is test!
 [service]
-type = "process"
+type = "oneshot"
 command = "/usr/bin/echo"
 args = "hello"
-waits_for = "graphical.target"
+required_by = "graphical.target"

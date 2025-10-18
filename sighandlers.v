@@ -1,7 +1,9 @@
 // micro signal handlers
 module main
 
+import os
 import syscall
+import quickev
 
 // SIGCHLD: reap zombies, help supervising services
 fn sigchld_handler(mut vr VigRegistry) {
@@ -45,5 +47,47 @@ fn sigchld_handler(mut vr VigRegistry) {
 		if pid <= 0 {
 			break
 		}
+	}
+}
+
+@[heap]
+struct VigctlHandler{
+mut:
+	v_r &VigRegistry
+}
+
+fn (mut vch VigctlHandler) vigctl_accept_handler(mut ql quickev.QevLoop, fd int) {
+	ql.add_datafd(fd, vch.vigctl_cnfd_handler)
+}
+
+fn (mut vch VigctlHandler) vigctl_cnfd_handler(mut ql quickev.QevLoop, fd int) {
+	mut buf := []u8{}
+	for {
+		buf2 := [512]u8{}
+		i := C.read(fd, &buf2, buf2.len)
+		if i < 0 {
+			if C.errno == C.EAGAIN || C.errno == C.EINTR {
+				continue
+			}
+			eprintln("reading error")
+		}
+		buf << buf2[0..i]
+		if i < buf2.len {
+			break
+		}
+	}
+	cbuf := unsafe {malloc_noscan(buf.len + 1)}
+	unsafe {vmemcpy(cbuf, buf.data, buf.len)}
+	unsafe {cbuf[buf.len] = 0}
+	bstr := unsafe{tos(cbuf, buf.len).clone()}
+	unsafe {free(cbuf)}
+	vig_result := /*vigctl_do(bstr, mut v_r)*/'{"proto_version":1,"purpose":"vigreturn","content":"Service echo.service is already started."}'
+	//println(vig_result)
+	//os.fd_write(cfd, vig_result)
+	os.fd_write(fd, vig_result)
+	ql.del_datafd(fd)
+	unsafe {
+		bstr.free()
+		buf.free()
 	}
 }

@@ -38,12 +38,13 @@ enum VigProcessType {
 
 @[direct_array_access]
 fn main() {
+	
 	// println(load_service_file("./test.service") or { err.str() })
 	// exit(1)
 	// global-variable-avoiding-zone start
 	mut servicetype := VigProcessType.user_serv
 	mut service_dir := '/etc/vigilante.d/boot.d'
-	mut vig_registry := VigRegistry{}
+	mut vig_registry := &VigRegistry{}
 	mut svc_dir_override := false
 
 	// global-variable-avoiding-zone end
@@ -84,7 +85,7 @@ fn main() {
 		service_dir = '/usr/vigilante.d/system.d'
 	}
 
-	mut v_r := &vig_registry
+	mut v_r := vig_registry
 
 	// load service files
 	if _likely_(servicetype == VigProcessType.sys_init) {
@@ -123,25 +124,8 @@ fn main() {
 	}
 
 	// process vigctl
-	qevloop.add_generalfd(uds, fn [mut vig_registry] (fd int) {
-		mut buf := []u8{cap:1024}
-		for {
-			buf2 := [1024]u8{}
-			i := C.read(fd, &buf2, buf2.len)
-			if i < 0 {
-				if C.errno == C.EAGAIN || C.errno == C.EINTR {
-					continue
-				}
-				eprintln("reading error")
-				exit(1)
-			}
-			buf << buf2[..i]
-			if i < 1024 {
-				break
-			}
-		}
-		os.fd_write(fd, vigctl_do(buf.bytestr(), mut vig_registry))
-	})
+	mut vch := VigctlHandler{v_r: v_r}
+	qevloop.add_accepterfd(uds, vch.vigctl_accept_handler)
 
 	//println('epoll fd:${qevloop.get_epollfd()}')
 	//println('signal fd:${qevloop.get_signalfd()}')

@@ -47,8 +47,7 @@ pub fn epoll_ctl(epfd int, op int, fd int, mut event C.epoll_event) {
 	e := C.syscall(sys_epoll_ctl, epfd, op, fd, &event)
 	if e == -1 {
 		println(os.posix_get_error_msg(C.errno))
-		println('omg')
-		exit(1)
+		panic('omg')
 	}
 }
 

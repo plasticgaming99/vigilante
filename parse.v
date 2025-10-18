@@ -29,7 +29,7 @@ mut:
 	depends_ms  []string      // depends_on, but don't stop the service when marked services are stopped
 	waits_for   []string      // runned after the process started.
 	then_start  []string      // start services after exited successfully
-	required_by []string      // it's needed because vig has build-in mount
+	required_by []string      // it's needed because vig has built-in mount (it has changed to milestone)
 
 	pid_file     string          // enter filepath, if file exists, record pid, then mark service runnin'
 	start_string string          // find string to detect the service started successfully

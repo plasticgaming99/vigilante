@@ -60,3 +60,7 @@ pub fn waitpid(pid int, options int) (int, &int) {
 	ret_pid := C.waitpid(pid, &cstat, options)
 	return ret_pid, &cstat
 }
+
+pub fn kill(pid int, signal int) int {
+	return C.kill(pid, signal)
+}

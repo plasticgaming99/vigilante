@@ -16,3 +16,4 @@ default.profdata
 perf.data
 perf.data.old
 perf.fdata
+callgrind*

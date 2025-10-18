@@ -3,6 +3,7 @@
 module main
 
 import os
+import syscall
 
 fn (vr &VigRegistry) find_after(svcname string) []string {
 	mut ret := []string{}
@@ -158,11 +159,6 @@ fn (mut vr VigRegistry) start_process(svc string, reason ServiceReason) {
 	return
 }
 
-// stops process
-fn (vr &VigRegistry) stop_process(svc string) {
-	
-}
-
 fn (mut vr VigRegistry) start_service(svc string) {
 	if !vr.is_dependency_started(svc) {
 		vr.vigsvcs[svc].internal.state = .pending
@@ -269,9 +265,33 @@ fn (mut vr VigRegistry) start_service_tree(st string) {
 	}
 }
 
-// it stops services with some methods
-fn (vr &VigRegistry) stop_service(svname string) {
+// stops process
+fn (mut vr VigRegistry) stop_process(svc string) {
+	i := syscall.kill(vr.vigsvcs[svc].internal.pid, int(os.Signal.term))
+	if i == 0 {
+		vr.service_stopped(svc)
+		return
+	}
+	return
+}
 
+// it stops services with some methods
+fn (mut vr VigRegistry) stop_service(svname string) {
+	match vr.vigsvcs[svname].service.type {
+		"process" {
+			vr.stop_process(svname)
+		}
+		"oneshot" {
+			vr.service_stopped(svname)
+		}
+		"fork" {
+			vr.stop_process(svname)
+		}
+		"internal" {
+			vr.service_started(svname)
+		}
+		else {}
+	}
 }
 
 // stops recursively

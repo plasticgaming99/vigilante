@@ -5,6 +5,7 @@
 module quickev
 
 import os
+import arrays
 import syscall
 
 #include <unistd.h>
@@ -21,15 +22,17 @@ struct SignalWatcher {
 }
 
 // loop structure.
-struct QevLoop {
+pub struct QevLoop {
 mut:
 	sigwatch      []SignalWatcher
 	signalfd_mask syscall.SigSetFd
 	sfdepollev    C.epoll_event
 	signalfd      int = -1
 	timerfd       int = -1
-	generalfd     map[int]fn (fd int)
+	accepterfd    map[int]fn (mut ql QevLoop, fd int)
+	datafd        map[int]fn (mut ql QevLoop, fd int)
 	epollfd       int = -1
+	unregist_fd   []int
 }
 
 pub fn init_loop() !QevLoop {
@@ -64,6 +67,7 @@ fn (mut ql QevLoop) finalize_signal() ! {
 		ssfd.add(int(swt.signal))
 	}
 	syscall.sigprocmask(C.SIG_BLOCK, &ssfd.val[0], unsafe { nil })
+	unsafe {ssfd.free()}
 	sfd := syscall.signalfd(-1, ssfd, C.SFD_NONBLOCK | C.O_CLOEXEC)
 	println(os.posix_get_error_msg(C.errno))
 	if sfd == -1 {
@@ -76,16 +80,49 @@ fn (mut ql QevLoop) finalize_signal() ! {
 	syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_ADD, ql.signalfd, mut e_ev)
 }
 
-// set generalfd
-// it can be used for http-like what
-pub fn (mut ql QevLoop) add_generalfd(fd int, cb fn (int)) {
-	ql.generalfd[fd] = cb
+// set accepterfd
+// you can gain connection fds
+pub fn (mut ql QevLoop) add_accepterfd(fd int, cb fn (mut ql QevLoop, fd int)) {
+	ql.accepterfd[fd] = cb
 
 	mut ev := C.epoll_event{}
 	ev.events = u32(C.EPOLLIN|C.EPOLLET)
 	ev.data.fd = fd
 	C.fcntl(fd, C.F_SETFL, C.O_NONBLOCK)
 	syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_ADD, fd, mut ev)
+}
+
+@[inline]
+pub fn (mut ql QevLoop) del_accepterfd(datafd int) {
+	ql.unregist_fd << datafd
+}
+
+fn (mut ql QevLoop) unregister_accepterfd(accfd int) {
+	mut ev := C.epoll_event{}
+	syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_DEL, accfd, mut ev)
+	ql.accepterfd.delete(accfd)
+	os.fd_close(accfd)
+}
+
+pub fn (mut ql QevLoop) add_datafd(fd int, cb fn (mut ql QevLoop, fd int)) {
+	ql.datafd[fd] = cb
+	mut ev := C.epoll_event{}
+	ev.events = u32(C.EPOLLIN|C.EPOLLOUT|C.EPOLLET)
+	ev.data.fd = fd
+	C.fcntl(fd, C.F_SETFL, C.O_NONBLOCK)
+	syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_ADD, fd, mut ev)
+}
+
+@[inline]
+pub fn (mut ql QevLoop) del_datafd(datafd int) {
+	ql.unregist_fd << datafd
+}
+
+fn (mut ql QevLoop) unregister_datafd(datafd int) {
+	mut ev := C.epoll_event{}
+	syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_DEL, datafd, mut ev)
+	ql.datafd.delete(datafd)
+	os.fd_close(datafd)
 }
 
 // timer does not have to finalyze
@@ -108,8 +145,11 @@ pub fn (mut ql QevLoop) run() {
 		ql.finalize_signal() or {  }
 	}
 
+	mut afdk := []int{cap: 1024}
+	mut dfdk := []int{cap: 1024}
+
 	for {
-		mut eventbuf := [C.epoll_event{}].repeat(maxevent)
+		mut eventbuf := []C.epoll_event{len: maxevent, cap: maxevent}
 		mut ev := &eventbuf
 		eventc := syscall.epoll_wait(ql.epollfd, mut ev, -1) or { 0 }
 		if eventc < 0 {
@@ -118,7 +158,8 @@ pub fn (mut ql QevLoop) run() {
 		}
 		for mli := 0; mli < eventc; mli++ {
 			recv_fd := eventbuf[mli].data.fd
-
+			afdk = ql.accepterfd.keys()
+			dfdk = ql.datafd.keys()
 			match true {
 				recv_fd == ql.signalfd {
 					sfds := C.signalfd_siginfo{}
@@ -130,10 +171,19 @@ pub fn (mut ql QevLoop) run() {
 						}
 					}
 				}
-				recv_fd in ql.generalfd.keys() {
+				recv_fd in afdk {
 					cfd := C.accept(recv_fd, voidptr(0), 0)
-					ql.generalfd[recv_fd](cfd)
-					C.close(cfd)
+					C.fcntl(cfd, C.F_SETFD, C.FD_CLOEXEC)
+					ql.accepterfd[recv_fd](mut ql, cfd)
+					if recv_fd in ql.unregist_fd {
+						ql.unregister_accepterfd(recv_fd)
+					}
+				}
+				recv_fd in dfdk {
+					ql.datafd[recv_fd](mut ql, recv_fd)
+					if recv_fd in ql.unregist_fd{
+						ql.unregister_datafd(recv_fd)
+					}
 				}
 				// recv_fd in ql.
 				else {
@@ -141,6 +191,23 @@ pub fn (mut ql QevLoop) run() {
 					continue
 				}
 			}
+
+			for i := ql.unregist_fd.len; i > ql.unregist_fd.len; i-- {
+				fd := ql.unregist_fd[i]
+				if fd in afdk {
+					ql.unregister_accepterfd(fd)
+				} else if fd in dfdk {
+					ql.unregister_datafd(fd)
+				}
+				unsafe {
+					free(fd)
+				}
+			}
+			afdk.clear()
+			dfdk.clear()
+		}
+		unsafe {
+			eventbuf.free()
 		}
 	}
 }

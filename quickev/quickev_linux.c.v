@@ -1,11 +1,10 @@
 // quickev is a single threaded event loop librrary
 // not recommended for using in network applications
 // only epoll/linux-fds is available currently
-
+@[manualfree]
 module quickev
 
 import os
-import arrays
 import syscall
 
 #include <unistd.h>

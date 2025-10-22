@@ -65,7 +65,7 @@ fn main() {
 	println(jsondata)
 
 	println('connect to vigilante daemon')
-	mut  cnter := u64(0)
+	mut cnter := u64(0)
 	for {
 		fd := syscall.connect_unix_domain_socket('/tmp/vigctl.socket') or {
 			println(err)
@@ -91,7 +91,7 @@ fn main() {
 			}
 		}
 		bbstr := buf.bytestr()
-		rt := json.decode(vigctllib.VigDataType, bbstr) or {vigctllib.VigDataType{}}
+		rt := json.decode(vigctllib.VigDataType, bbstr) or { vigctllib.VigDataType{} }
 		println(rt.content)
 		os.fd_close(fd)
 		cnter++
@@ -101,8 +101,8 @@ fn main() {
 			buf.free()
 			rt.free()
 		}
-		if cnter == 50000 {
-			break
-		}
+		// if cnter == 50000 {
+		//	break
+		//}
 	}
 }

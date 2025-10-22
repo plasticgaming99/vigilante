@@ -1,5 +1,5 @@
 // provides service management methods
-
+@[manualfree]
 module main
 
 import os
@@ -104,6 +104,9 @@ fn (vr &VigRegistry) is_dependency_started(svc string) bool {
 		if vr.vigsvcs[s].internal.state != .running {
 			return false
 		}
+	}
+	unsafe {
+		dep.free()
 	}
 	return true
 }
@@ -262,6 +265,15 @@ fn (mut vr VigRegistry) start_service_tree(st string) {
 			vr.start_service(servname)
 		}
 		processed[servname] = true
+	}
+
+	unsafe {
+		str.free()
+
+		processed.free()
+		instack.free()
+		stack.free()
+		process.free()
 	}
 }
 

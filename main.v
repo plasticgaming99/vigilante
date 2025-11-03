@@ -23,7 +23,6 @@ fn walk_service_dir(fpath string, mut vserv map[string]VigService) {
 fn (vr &VigRegistry) pid_to_service_name(pid int) ?string {
 	for _, v_s in vr.vigsvcs {
 		if v_s.internal.pid == pid {
-			println('yes in ${v_s.info.name}')
 			return v_s.info.name
 		}
 	}
@@ -125,7 +124,7 @@ fn main() {
 
 	// process vigctl
 	mut vch := VigctlHandler{v_r: v_r}
-	qevloop.add_accepterfd(uds, vch.vigctl_accept_handler)
+	qevloop.add_accepterfd(uds, voidptr(vch.vigctl_accept_handler)) or {}
 
 	//println('epoll fd:${qevloop.get_epollfd()}')
 	//println('signal fd:${qevloop.get_signalfd()}')

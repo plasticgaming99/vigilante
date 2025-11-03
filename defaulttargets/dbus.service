@@ -1,0 +1,4 @@
+[service]
+type = "oneshot"
+required_by = "multi-user.target"
+command = "true"

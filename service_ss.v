@@ -66,7 +66,7 @@ fn (mut vr VigRegistry) merge_required_by() {
 				for i := 0; i < req.len; i++ {
 					req[i] = 'vt_' + req[i]
 				}
-				println('merged virtual target ${req}')
+				//println('merged virtual target ${req}')
 				vr.vigsvcs[k].service.depends_on << req
 			}
 		}
@@ -173,11 +173,11 @@ fn (mut vr VigRegistry) start_service(svc string) {
 
 	match vr.vigsvcs[svc].service.type {
 		"process", "fork", "oneshot" {
-			logsimple(svc)
+			logsimple_start(svc)
 			vr.start_process(svc, .dependency)
 		}
 		"internal" {
-			logsimple(svc)
+			logsimple_start(svc)
 			vr.service_started(svc)
 		}
 		else {}

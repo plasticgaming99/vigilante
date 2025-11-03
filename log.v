@@ -1,3 +1,4 @@
+@[manualfree]
 module main
 
 // logger???
@@ -11,19 +12,44 @@ module main
 // [     *]
 // [FAILED]
 
-pub fn logsimple(svcname string) {
+pub fn logsimple_start(svcname string) {
+	aft := svcname.after('.')
 	match svcname.after('.') {
 		'target' {
-			println('reached target ${svcname}')
+			println('[reached] ${svcname}')
 		}
 		'service' {
-			println('starting service ${svcname}')
+			println('[startng] ${svcname}')
 		}
 		'mount' {
-			println('mounted ${svcname}')
+			println('[mounted] ${svcname}')
 		}
 		else {
-			println('ran unknown ${svcname}')
+			println('[unknown] ${svcname}')
 		}
+	}
+	unsafe {
+		aft.free()
+	}
+}
+
+pub fn logsimple_started(svcname string) {
+	aft := svcname.after('.')
+	match svcname.after('.') {
+		'target' {
+			println('[reached] ${svcname}')
+		}
+		'service' {
+			println('[started] ${svcname}')
+		}
+		'mount' {
+			println('[mounted] ${svcname}')
+		}
+		else {
+			println('[unknown] ${svcname}')
+		}
+	}
+	unsafe {
+		aft.free()
 	}
 }

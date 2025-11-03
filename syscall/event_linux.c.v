@@ -1,6 +1,6 @@
 // Wraps small amount of C syscall to V
 // foo fd epoll
-
+@[manualfree]
 module syscall
 
 import os

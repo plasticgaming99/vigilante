@@ -1,3 +1,4 @@
+@[manualfree]
 module syscall
 
 import net

@@ -1,6 +1,6 @@
 # this is test!
-[service]
-type = "oneshot"
-command = "/usr/bin/echo"
-args = "hello"
-required_by = "graphical.target"
+#[service]
+#type = "oneshot"
+#command = "/usr/bin/echo"
+#args = "hello"
+#required_by = "graphical.target"

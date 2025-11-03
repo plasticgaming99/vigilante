@@ -1,4 +1,5 @@
 // bind C language syscall interfaces to V
+@[manualfree]
 module syscall
 
 #include <unistd.h>

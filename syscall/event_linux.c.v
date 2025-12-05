@@ -42,12 +42,11 @@ pub fn epoll_create1(flags int) !int {
 	}
 }
 
-pub fn epoll_ctl(epfd int, op int, fd int, mut event C.epoll_event) {
+pub fn epoll_ctl(epfd int, op int, fd int, mut event C.epoll_event) ! {
 	event.data.fd = fd
 	e := C.syscall(sys_epoll_ctl, epfd, op, fd, &event)
 	if e == -1 {
-		println(os.posix_get_error_msg(C.errno))
-		panic('omg')
+		error("somehow failed to add fd ${fd} ${os.posix_get_error_msg(C.errno)}")
 	}
 }
 
@@ -57,8 +56,7 @@ pub fn epoll_wait(fd int, mut events []C.epoll_event, timeout int) !int {
 	}
 	ret := C.syscall(sys_epoll_wait, fd, unsafe { &events[0] }, events.len, timeout)
 	if ret < 0 {
-		println(os.posix_get_error_msg(C.errno))
-		return error('error calling syscall: epoll')
+		return error("error calling syscall: epoll ${os.posix_get_error_msg(C.errno)}")
 	}
 	return ret
 }

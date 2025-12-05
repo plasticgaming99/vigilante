@@ -46,7 +46,7 @@ type FdHandler = fn (mut ql QevLoop, fd int)
 pub fn init_loop() !QevLoop {
 	mut fdnlfns := []FdHandler{}
 	for _ in 0 .. maxfd {
-		fdnlfns << fdnlfn
+		fdnlfns << &fdnlfn
 	}
 	mut ql := QevLoop{
 		epollfd: syscall.epoll_create1(C.O_CLOEXEC) or { return err }
@@ -90,7 +90,7 @@ fn (mut ql QevLoop) finalize_signal() ! {
 	ql.signalfd_mask = ssfd
 	ql.sfdepollev.events = u32(C.EPOLLIN|C.EPOLLET)
 	mut e_ev := &ql.sfdepollev
-	syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_ADD, ql.signalfd, mut e_ev)
+	syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_ADD, ql.signalfd, mut e_ev) or { panic(err) }
 }
 
 // set accepterfd
@@ -105,7 +105,7 @@ pub fn (mut ql QevLoop) add_accepterfd(fd int, cb fn (mut ql QevLoop, fd int)) !
 	ev.events = u32(C.EPOLLIN|C.EPOLLET)
 	ev.data.fd = fd
 	C.fcntl(fd, C.F_SETFL, C.O_NONBLOCK)
-	syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_ADD, fd, mut ev)
+	syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_ADD, fd, mut ev) or { panic(err) }
 }
 
 @[inline]
@@ -115,7 +115,7 @@ pub fn (mut ql QevLoop) del_accepterfd(datafd int) {
 
 fn (mut ql QevLoop) unregister_accepterfd(accfd int) {
 	mut ev := C.epoll_event{}
-	syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_DEL, accfd, mut ev)
+	syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_DEL, accfd, mut ev) or { panic(err) }
 	ql.fdfunc[accfd] = &fdnlfn
 	i := ql.accepterfd.index(accfd)
 	ql.accepterfd.delete(i)
@@ -132,7 +132,7 @@ pub fn (mut ql QevLoop) add_datafd(fd int, cb fn (mut ql QevLoop, fd int)) ! {
 	ev.events = u32(C.EPOLLIN|C.EPOLLOUT|C.EPOLLET)
 	ev.data.fd = fd
 	C.fcntl(fd, C.F_SETFL, C.O_NONBLOCK)
-	syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_ADD, fd, mut ev)
+	syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_ADD, fd, mut ev) or { panic(err) }
 }
 
 @[inline]
@@ -142,7 +142,7 @@ pub fn (mut ql QevLoop) del_datafd(datafd int) {
 
 fn (mut ql QevLoop) unregister_datafd(datafd int) {
 	mut ev := C.epoll_event{}
-	syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_DEL, datafd, mut ev)
+	syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_DEL, datafd, mut ev) or { panic(err) }
 	ql.fdfunc[datafd] = &fdnlfn
 	i := ql.datafd.index(datafd)
 	ql.datafd.delete(i)
@@ -173,7 +173,7 @@ pub fn (mut ql QevLoop) run() {
 	mut ev := &eventbuf
 
 	for {
-		eventc := syscall.epoll_wait(ql.epollfd, mut ev, -1) or { 0 }
+		eventc := syscall.epoll_wait(ql.epollfd, mut ev, -1) or { panic(err) }
 		if eventc < 0 {
 			println('error, epoll_wait')
 			exit(1)
@@ -207,7 +207,7 @@ pub fn (mut ql QevLoop) run() {
 				}
 				// recv_fd in ql.
 				else {
-					println('mystery')
+					//println('mystery')
 					continue
 				}
 			}

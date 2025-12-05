@@ -81,18 +81,20 @@ fn (mut vch VigctlHandler) vigctl_cnfd_handler(mut ql quickev.QevLoop, fd int) {
 			break
 		}
 	}
-	cbuf := unsafe {malloc_noscan(buf.len + 1)}
+	/*cbuf := unsafe {malloc_noscan(buf.len + 1)}
 	unsafe {vmemcpy(cbuf, buf.data, buf.len)}
 	unsafe {cbuf[buf.len] = 0}
 	bstr := unsafe{tos(cbuf, buf.len).clone()}
-	unsafe {free(cbuf)}
-	vig_result := vigctl_do(bstr, mut vch.v_r)/*'{"proto_version":1,"purpose":"vigreturn","content":"Service echo.service is already started."}'*/
+	unsafe {free(cbuf)}*/
+	bstr := buf.str()
+	//vig_result := vigctl_do(bstr, mut vch.v_r)
+	vig_result := '{"proto_version":1,"purpose":"vigreturn","content":"Service echo.service is already started."}'
+	unsafe { vig_result.free() }
 	//println(vig_result)
 	//os.fd_write(cfd, vig_result)
 	os.fd_write(fd, vig_result)
 	ql.del_datafd(fd)
 	unsafe {
-		vig_result.free()
 		bstr.free()
 		buf.free()
 	}

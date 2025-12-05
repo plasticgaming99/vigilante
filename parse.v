@@ -87,12 +87,6 @@ pub mut:
 	internal VigServiceInternal
 }
 
-@[heap]
-pub struct VigRegistry {
-pub mut:
-	vigsvcs map[string]VigService
-}
-
 fn load_service_file(fpath string) !VigService {
 	tom := toml.parse_file(fpath) or { return error('failed to load service file ${err}') }
 	mut serv := VigService{}

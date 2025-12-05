@@ -3,6 +3,7 @@
 module main
 
 import os
+import quickev
 import syscall
 
 fn (vr &VigRegistry) find_after(svcname string) []string {
@@ -117,9 +118,11 @@ fn (mut vr VigRegistry) service_started(svc string) {
 		if vr.vigsvcs[s].internal.state == .pending {
 			vr.start_service(s)
 		}
+		unsafe { s.free() }
 	}
 	for s in vr.find_waits_for(svc) {
 		vr.start_service(s)
+		unsafe { s.free() }
 	}
 }
 
@@ -128,10 +131,25 @@ fn (mut vr VigRegistry) service_stopped(svc string) {
 	for s in vr.find_depends(svc) {
 		if !vr.vigsvcs[s].service.restart_smooth {
 		}
+		unsafe { s.free() }
 	}
 }
 
-// start process, handle internal too
+@[heap]
+struct Hs6 {
+mut:
+	svcname string
+	vr &VigRegistry
+}
+
+fn (mut h Hs6) hypervise_s6(mut ql quickev.QevLoop, fd int) {
+	logsimple_started(h.svcname)
+	h.vr.service_started(h.svcname)
+	s, _ := os.fd_read(fd, 1024)
+	unsafe { s.free() }
+	ql.del_datafd(fd)
+}
+
 fn (mut vr VigRegistry) start_process(svc string, reason ServiceReason) {
 	if vr.vigsvcs[svc].service.command == '' {
 		return
@@ -147,8 +165,37 @@ fn (mut vr VigRegistry) start_process(svc string, reason ServiceReason) {
 		cmd = cmd.map(it.replace_each(replacer))
 	}
 
+	mut pipevar := 0
+	mut pipefds := [2]int{}
+
+	match vr.vigsvcs[svc].service.type {
+		"process" {
+			C.pipe(&pipefds[0])
+			mut hs6 := Hs6{
+				svcname: svc
+				vr: vr
+			}
+			vr.qevloop.add_datafd(pipefds[0], hs6.hypervise_s6) or {}
+		}
+		"fork" {
+
+		}
+		else {}
+	}
+
 	pid := os.fork()
+	// eliminate stdin of service
 	if pid == 0 {
+		nullfd := C.open(c"/dev/null", C.O_RDONLY)
+		C.dup2(nullfd, 0)
+
+		C.close(pipefds[0])
+
+		if vr.vigsvcs[svc].service.ready_notify.pipevar != "" {
+			C.dup2(pipefds[1], vr.vigsvcs[svc].service.ready_notify.pipevar.int())
+		} else {
+			C.dup2(pipefds[1], vr.vigsvcs[svc].service.ready_notify.pipefd)
+		}
 		mut args := []string{}
 		if cmd.len > 1 {
 			args = unsafe { cmd[1..] }
@@ -265,6 +312,7 @@ fn (mut vr VigRegistry) start_service_tree(st string) {
 			vr.start_service(servname)
 		}
 		processed[servname] = true
+		unsafe { servname.free() }
 	}
 
 	unsafe {

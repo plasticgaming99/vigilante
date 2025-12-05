@@ -35,6 +35,13 @@ enum VigProcessType {
 	user_serv
 }
 
+@[heap]
+pub struct VigRegistry {
+pub mut:
+	vigsvcs map[string]VigService
+	qevloop &quickev.QevLoop
+}
+
 @[direct_array_access]
 fn main() {
 	
@@ -43,7 +50,7 @@ fn main() {
 	// global-variable-avoiding-zone start
 	mut servicetype := VigProcessType.user_serv
 	mut service_dir := '/etc/vigilante.d/boot.d'
-	mut vig_registry := &VigRegistry{}
+	mut vig_registry := &VigRegistry{qevloop: voidptr(0)}
 	mut svc_dir_override := false
 
 	// global-variable-avoiding-zone end
@@ -105,6 +112,7 @@ fn main() {
 		println('Error initializing event loop!')
 		exit(1)
 	}
+	v_r.qevloop = &qevloop
 	qevloop.add_signal(os.Signal.usr1, fn () {
 		println('hi im function')
 	})

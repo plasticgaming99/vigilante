@@ -1,4 +1,5 @@
 [service]
-type = "oneshot"
+type = "process"
 required_by = "multi-user.target"
-command = "true"
+command = "dbus-daemon --nofork --session --print-address=3"
+ready_notify = { pipefd = 3 }

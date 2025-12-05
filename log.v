@@ -19,7 +19,7 @@ pub fn logsimple_start(svcname string) {
 			println('[reached] ${svcname}')
 		}
 		'service' {
-			println('[startng] ${svcname}')
+			println('          starting ${svcname}')
 		}
 		'mount' {
 			println('[mounted] ${svcname}')

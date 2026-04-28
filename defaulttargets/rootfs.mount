@@ -1,0 +1,3 @@
+[service]
+type = "internal"
+required_by = "poweroff.target"

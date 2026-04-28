@@ -170,10 +170,10 @@ pub fn (mut ql QevLoop) run() {
 	}
 
 	mut eventbuf := []C.epoll_event{len: maxevent, cap: maxevent}
-	mut ev := &eventbuf
+	//mut ev := &eventbuf
 
 	for {
-		eventc := syscall.epoll_wait(ql.epollfd, mut ev, -1) or { panic(err) }
+		eventc := syscall.epoll_wait(ql.epollfd, mut eventbuf, -1) or { panic(err) }
 		if eventc < 0 {
 			println('error, epoll_wait')
 			exit(1)

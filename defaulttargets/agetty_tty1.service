@@ -1,5 +1,5 @@
 [service]
 type = "oneshot"
 required_by = "multi-user.target"
-depends_on = "rootfs.mount"
+depends_on = "recovery.target"
 command = "true"

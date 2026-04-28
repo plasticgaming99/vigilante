@@ -1,5 +1,5 @@
 [service]
 type = "oneshot"
+command = "true"
 required_by = "networking.target"
 depends_on = "rootfs.mount"
-command = "true"

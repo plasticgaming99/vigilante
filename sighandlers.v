@@ -13,7 +13,7 @@ fn sigchld_handler(mut vr VigRegistry) {
 		//println('zombie reaped? ${pid}')
 		sname := vr.pid_to_service_name(pid) or {"miss!"}
 		if vr.vigsvcs[sname].internal.pid == pid {
-			exstat := C.WEXITSTATUS(stat)
+			exstat := C.WEXITSTATUS(*stat)
 			//println("status: ${exstat}")
 			match vr.vigsvcs[sname].service.type {
 				"process" {

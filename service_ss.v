@@ -165,7 +165,7 @@ fn (mut vr VigRegistry) start_process(svc string, reason ServiceReason) {
 		cmd = cmd.map(it.replace_each(replacer))
 	}
 
-	mut pipevar := 0
+	//mut pipevar := 0
 	mut pipefds := [2]int{}
 
 	match vr.vigsvcs[svc].service.type {

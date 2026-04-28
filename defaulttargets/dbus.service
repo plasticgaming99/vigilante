@@ -3,3 +3,4 @@ type = "process"
 required_by = "multi-user.target"
 command = "dbus-daemon --nofork --session --print-address=3"
 ready_notify = { pipefd = 3 }
+depends_on = "rootfs.mount"

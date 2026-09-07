@@ -10,11 +10,25 @@ mut:
 	description string
 }
 
+fn (vsi VigServiceInfo) clone() VigServiceInfo {
+	return VigServiceInfo{
+		name: vsi.name.clone()
+		description: vsi.description.clone()
+	}
+}
+
 @[heap]
 struct ReadyNotifyType {
 mut:
 	pipefd  int
 	pipevar string
+}
+
+fn (rnt ReadyNotifyType) clone() ReadyNotifyType {
+	return ReadyNotifyType{
+		pipefd: rnt.pipefd
+		pipevar: rnt.pipevar.clone()
+	}
 }
 
 @[heap]
@@ -43,6 +57,29 @@ mut:
 	set_var []string // merge variables
 }
 
+fn (vss VigServiceService) clone() VigServiceService {
+	return VigServiceService{
+		type: vss.type.clone()
+		command: vss.command.clone()
+		timeout: vss.timeout
+		after: vss.after.clone()
+		before: vss.before.clone()
+		depends_on: vss.depends_on.clone()
+		depends_ms: vss.depends_ms.clone()
+		waits_for: vss.waits_for.clone()
+		then_start: vss.then_start.clone()
+		required_by: vss.required_by.clone()
+		pid_file: vss.pid_file.clone()
+		start_string: vss.start_string.clone()
+		ready_notify: vss.ready_notify.clone()
+		restart_limit: vss.restart_limit
+		restart_smooth: vss.restart_smooth
+		runs_on_console: vss.runs_on_console
+		start_on_console: vss.start_on_console
+		set_var: vss.set_var.clone()
+	}
+}
+
 @[heap]
 pub struct VigServiceMount {
 mut:
@@ -54,7 +91,18 @@ mut:
 	directory_mode string
 }
 
-enum ServiceState {
+fn (vsm VigServiceMount) clone() VigServiceMount {
+	return VigServiceMount{
+		resource: vsm.resource.clone()
+		mount_to: vsm.mount_to.clone()
+		fs_type: vsm.fs_type.clone()
+		options: vsm.options.clone()
+		require_rw: vsm.require_rw
+		directory_mode: vsm.directory_mode.clone()
+	}
+}
+
+pub enum ServiceState {
 	stopped
 	pending
 	starting
@@ -62,7 +110,7 @@ enum ServiceState {
 	failed
 }
 
-enum ServiceReason {
+pub enum ServiceReason {
 	user_specified
 	dependency
 }
@@ -71,10 +119,19 @@ enum ServiceReason {
 struct VigServiceInternal {
 mut:
 	pid          int = -2
-	state        ServiceState
-	reason       ServiceReason
+	state        int
+	reason       int
 	triggered_by []string
 	//dependent    []string
+}
+
+fn (vsi VigServiceInternal) clone() VigServiceInternal {
+	return VigServiceInternal{
+		pid: vsi.pid
+		state: vsi.state
+		reason: vsi.reason
+		triggered_by: vsi.triggered_by.clone()
+	}
 }
 
 // service file
@@ -85,6 +142,16 @@ pub mut:
 	service  VigServiceService
 	mount    VigServiceMount
 	internal VigServiceInternal
+}
+
+fn (vs VigService) clone() VigService {
+	return VigService{
+		info: vs.info.clone()
+		service: vs.service.clone()
+		mount: vs.mount.clone()
+		internal: vs.internal.clone()
+	}
+
 }
 
 fn load_service_file(fpath string) !VigService {

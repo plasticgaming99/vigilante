@@ -3,7 +3,7 @@ module main
 import syscall
 import lib as vigctllib
 import os
-import json
+import json2
 
 enum Control {
 	start
@@ -61,7 +61,7 @@ fn main() {
 		purpose:       vca.control.control_to_proto()
 		content:       vca.servicename
 	}
-	jsondata := json.encode(data)
+	jsondata := json2.encode[vigctllib.VigDataType](data, escape_unicode: true)
 	println(jsondata)
 
 	println('connect to vigilante daemon')
@@ -91,18 +91,15 @@ fn main() {
 			}
 		}
 		bbstr := buf.bytestr()
-		rt := json.decode(vigctllib.VigDataType, bbstr) or { vigctllib.VigDataType{} }
+		rt := json2.decode[vigctllib.VigDataType](bbstr) or { vigctllib.VigDataType{} }
 		println(rt.content)
 		os.fd_close(fd)
+		exit(0)
 		cnter++
 		println(cnter)
-		unsafe {
-			bbstr.free()
-			buf.free()
-			rt.free()
-		}
 		// if cnter == 50000 {
 		//	break
 		//}
+		exit(0)
 	}
 }

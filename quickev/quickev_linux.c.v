@@ -1,7 +1,6 @@
 // quickev is a single threaded event loop librrary
 // not recommended for using in network applications
 // only epoll/linux-fds is available currently
-@[manualfree]
 module quickev
 
 import os
@@ -23,12 +22,12 @@ struct SignalWatcher {
 const maxfd = 1024
 
 fn fdnlfn (mut ql QevLoop, fd int) {
-
+	_, _ = ql, fd
 }
 
 // loop structure.
 pub struct QevLoop {
-mut:
+pub mut:
 	sigwatch      []SignalWatcher
 	signalfd_mask syscall.SigSetFd
 	sfdepollev    C.epoll_event
@@ -46,7 +45,7 @@ type FdHandler = fn (mut ql QevLoop, fd int)
 pub fn init_loop() !QevLoop {
 	mut fdnlfns := []FdHandler{}
 	for _ in 0 .. maxfd {
-		fdnlfns << &fdnlfn
+		fdnlfns << fdnlfn
 	}
 	mut ql := QevLoop{
 		epollfd: syscall.epoll_create1(C.O_CLOEXEC) or { return err }
@@ -80,7 +79,6 @@ fn (mut ql QevLoop) finalize_signal() ! {
 		ssfd.add(int(swt.signal))
 	}
 	syscall.sigprocmask(C.SIG_BLOCK, &ssfd.val[0], unsafe { nil })
-	unsafe {ssfd.free()}
 	sfd := syscall.signalfd(-1, ssfd, C.SFD_NONBLOCK | C.O_CLOEXEC)
 	//println(os.posix_get_error_msg(C.errno))
 	if sfd == -1 {
@@ -100,7 +98,7 @@ pub fn (mut ql QevLoop) add_accepterfd(fd int, cb fn (mut ql QevLoop, fd int)) !
 		return error("found fd already in")
 	}
 	ql.accepterfd << fd
-	ql.fdfunc[fd] = voidptr(cb)
+	ql.fdfunc[fd] = cb
 	mut ev := C.epoll_event{}
 	ev.events = u32(C.EPOLLIN|C.EPOLLET)
 	ev.data.fd = fd
@@ -127,9 +125,9 @@ pub fn (mut ql QevLoop) add_datafd(fd int, cb fn (mut ql QevLoop, fd int)) ! {
 		return error("found fd already in")
 	}
 	ql.datafd << fd
-	ql.fdfunc[fd] = voidptr(cb)
+	ql.fdfunc[fd] = cb
 	mut ev := C.epoll_event{}
-	ev.events = u32(C.EPOLLIN|C.EPOLLOUT|C.EPOLLET)
+	ev.events = u32(C.EPOLLIN|C.EPOLLET)
 	ev.data.fd = fd
 	C.fcntl(fd, C.F_SETFL, C.O_NONBLOCK)
 	syscall.epoll_ctl(ql.epollfd, C.EPOLL_CTL_ADD, fd, mut ev) or { panic(err) }
@@ -170,18 +168,21 @@ pub fn (mut ql QevLoop) run() {
 	}
 
 	mut eventbuf := []C.epoll_event{len: maxevent, cap: maxevent}
-	//mut ev := &eventbuf
+	//println("event buffer initialized")
 
 	for {
+		//println("epoll wait")
 		eventc := syscall.epoll_wait(ql.epollfd, mut eventbuf, -1) or { panic(err) }
 		if eventc < 0 {
-			println('error, epoll_wait')
+			//println('error, epoll_wait')
 			exit(1)
 		}
 		for mli := 0; mli < eventc; mli++ {
+			//println("recieved things somehow")
 			recv_fd := eventbuf[mli].data.fd
 			match true {
 				recv_fd == ql.signalfd {
+					//println("signalfd")
 					sfds := C.signalfd_siginfo{}
 					C.read(ql.signalfd, &sfds, sizeof(sfds))
 					// don't confuse, sigwatch is SigWatcher.
@@ -192,18 +193,14 @@ pub fn (mut ql QevLoop) run() {
 					}
 				}
 				recv_fd in ql.accepterfd {
+					//println("accepterfd")
 					cfd := C.accept(recv_fd, voidptr(0), 0)
 					C.fcntl(cfd, C.F_SETFD, C.FD_CLOEXEC)
 					ql.fdfunc[recv_fd](mut ql, cfd)
-					if recv_fd in ql.unregist_fd {
-						ql.unregister_accepterfd(recv_fd)
-					}
 				}
 				recv_fd in ql.datafd {
+					//println("datafd")
 					ql.fdfunc[recv_fd](mut ql, recv_fd)
-					if recv_fd in ql.unregist_fd{
-						ql.unregister_datafd(recv_fd)
-					}
 				}
 				// recv_fd in ql.
 				else {
@@ -212,17 +209,14 @@ pub fn (mut ql QevLoop) run() {
 				}
 			}
 
-			for i := ql.unregist_fd.len; i > ql.unregist_fd.len; i-- {
-				fd := ql.unregist_fd[i]
+			for fd in ql.unregist_fd {
 				if fd in ql.accepterfd {
 					ql.unregister_accepterfd(fd)
 				} else if fd in ql.datafd {
 					ql.unregister_datafd(fd)
 				}
-				unsafe {
-					free(fd)
-				}
 			}
+			ql.unregist_fd.clear()
 		}
 	}
 }

@@ -7,7 +7,7 @@ import quickev
 const vig_service_nil = VigService{}
 
 fn walk_service_dir(fpath string, mut vserv map[string]VigService) {
-	if _unlikely_(os.is_dir(fpath)) {
+	if os.is_dir(fpath) {
 		return
 	}
 	if !(fpath.contains_any_substr(['.service', '.mount', '.target'])) {
@@ -41,6 +41,10 @@ pub mut:
 	vigsvcs map[string]VigService
 	qevloop &quickev.QevLoop
 }
+
+/*fn (mut v_r VigRegistry) give_qevloop(ql quickev.QevLoop) {
+	v_r.qevloop = &ql
+}*/
 
 @[direct_array_access]
 fn main() {
@@ -82,7 +86,7 @@ fn main() {
 		}
 	}
 
-	if _likely_(servicetype == VigProcessType.sys_init) {
+	if servicetype == VigProcessType.sys_init {
 	} else {
 		C.prctl(syscall.pr_set_child_subreaper)
 	}
@@ -94,7 +98,7 @@ fn main() {
 	mut v_r := vig_registry
 
 	// load service files
-	if _likely_(servicetype == VigProcessType.sys_init) {
+	if servicetype == VigProcessType.sys_init {
 		os.walk(service_dir, fn [mut v_r] (s string) {
 			walk_service_dir(s, mut v_r.vigsvcs)
 		})
@@ -110,17 +114,19 @@ fn main() {
 	// setup event loop
 	mut qevloop := quickev.init_loop() or {
 		println('Error initializing event loop!')
+		println(err)
 		exit(1)
 	}
 	v_r.qevloop = &qevloop
-	qevloop.add_signal(os.Signal.usr1, fn () {
+
+	v_r.qevloop.add_signal(os.Signal.usr1, fn () {
 		println('hi im function')
 	})
-	qevloop.add_signal(os.Signal.int, fn () {
+	v_r.qevloop.add_signal(os.Signal.int, fn () {
 		println('reboot everything!!!')
 		exit(0) // temp
 	})
-	qevloop.add_signal(os.Signal.chld, fn [mut vig_registry] () {
+	v_r.qevloop.add_signal(os.Signal.chld, fn [mut vig_registry] () {
 		sigchld_handler(mut vig_registry)
 	})
 
@@ -132,7 +138,7 @@ fn main() {
 
 	// process vigctl
 	mut vch := VigctlHandler{v_r: v_r}
-	qevloop.add_accepterfd(uds, voidptr(vch.vigctl_accept_handler)) or {}
+	v_r.qevloop.add_accepterfd(uds, vch.vigctl_accept_handler) or {}
 
 	//println('epoll fd:${qevloop.get_epollfd()}')
 	//println('signal fd:${qevloop.get_signalfd()}')
@@ -142,7 +148,8 @@ fn main() {
 	println('welcome to linux')
 	vig_registry.start_service_tree('default.target')
 
-	qevloop.run()
+	//println("run qevloop")
+	v_r.qevloop.run()
 
 	// this is test code.
 }

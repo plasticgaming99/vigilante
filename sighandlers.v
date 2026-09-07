@@ -1,4 +1,3 @@
-@[manualfree]
 // micro signal handlers
 module main
 
@@ -19,10 +18,10 @@ fn sigchld_handler(mut vr VigRegistry) {
 				"process" {
 					match exstat {
 						0 {
-							vr.vigsvcs[sname].internal.state = ServiceState.stopped
+							vr.vigsvcs[sname].internal.state = int(ServiceState.stopped)
 						}
 						else {
-							vr.vigsvcs[sname].internal.state = ServiceState.failed
+							vr.vigsvcs[sname].internal.state = int(ServiceState.failed)
 						}
 					}
 				}
@@ -36,7 +35,7 @@ fn sigchld_handler(mut vr VigRegistry) {
 							vr.service_started(sname)
 						}
 						else {
-							vr.vigsvcs[sname].internal.state = ServiceState.failed
+							vr.vigsvcs[sname].internal.state = int(ServiceState.failed)
 						}
 					}
 				}
@@ -45,9 +44,6 @@ fn sigchld_handler(mut vr VigRegistry) {
 					println("Invailed service type detected.")
 				}
 			}
-		}
-		unsafe {
-			sname.free()
 		}
 		if pid <= 0 {
 			break
@@ -62,7 +58,7 @@ mut:
 }
 
 fn (mut vch VigctlHandler) vigctl_accept_handler(mut ql quickev.QevLoop, fd int) {
-	ql.add_datafd(fd, voidptr(vch.vigctl_cnfd_handler)) or {}
+	ql.add_datafd(fd, vch.vigctl_cnfd_handler) or {}
 }
 
 fn (mut vch VigctlHandler) vigctl_cnfd_handler(mut ql quickev.QevLoop, fd int) {
@@ -81,21 +77,8 @@ fn (mut vch VigctlHandler) vigctl_cnfd_handler(mut ql quickev.QevLoop, fd int) {
 			break
 		}
 	}
-	/*cbuf := unsafe {malloc_noscan(buf.len + 1)}
-	unsafe {vmemcpy(cbuf, buf.data, buf.len)}
-	unsafe {cbuf[buf.len] = 0}
-	bstr := unsafe{tos(cbuf, buf.len).clone()}
-	unsafe {free(cbuf)}*/
-	bstr := buf.str()
-	//vig_result := vigctl_do(bstr, mut vch.v_r)
-	vig_result := '{"proto_version":1,"purpose":"vigreturn","content":"Service echo.service is already started."}'
-	unsafe { vig_result.free() }
-	//println(vig_result)
-	//os.fd_write(cfd, vig_result)
+	bstr := buf.bytestr()
+	vig_result := vigctl_do(bstr, mut vch.v_r)
 	os.fd_write(fd, vig_result)
 	ql.del_datafd(fd)
-	unsafe {
-		bstr.free()
-		buf.free()
-	}
 }

@@ -1,4 +1,3 @@
-@[manualfree]
 module main
 
 // logger???
@@ -14,7 +13,7 @@ module main
 
 pub fn logsimple_start(svcname string) {
 	aft := svcname.after('.')
-	match svcname.after('.') {
+	match aft {
 		'target' {
 			println('[reached] ${svcname}')
 		}
@@ -28,14 +27,11 @@ pub fn logsimple_start(svcname string) {
 			println('[unknown] ${svcname}')
 		}
 	}
-	unsafe {
-		aft.free()
-	}
 }
 
 pub fn logsimple_started(svcname string) {
 	aft := svcname.after('.')
-	match svcname.after('.') {
+	match aft {
 		'target' {
 			println('[reached] ${svcname}')
 		}
@@ -49,7 +45,40 @@ pub fn logsimple_started(svcname string) {
 			println('[unknown] ${svcname}')
 		}
 	}
-	unsafe {
-		aft.free()
+}
+
+pub fn logsimple_stop(svcname string) {
+	aft := svcname.after('.')
+	match aft {
+		'target' {
+			println('[stoppng] ${svcname}')
+		}
+		'service' {
+			println('[stoppng] ${svcname}')
+		}
+		'mount' {
+			println('[umnting] ${svcname}')
+		}
+		else {
+			println('[unknown] ${svcname}')
+		}
+	}
+}
+
+pub fn logsimple_stopped(svcname string) {
+	aft := svcname.after('.')
+	match aft {
+		'target' {
+			println('[stopped] ${svcname}')
+		}
+		'service' {
+			println('[stopped] ${svcname}')
+		}
+		'mount' {
+			println('[umonted] ${svcname}')
+		}
+		else {
+			println('[unknown] ${svcname}')
+		}
 	}
 }

@@ -1,5 +1,4 @@
 // provides service management methods
-@[manualfree]
 module main
 
 import os
@@ -45,7 +44,7 @@ fn (vr &VigRegistry) find_waits_for(svcname string) []string {
 	return ret
 }
 
-fn (vr &VigRegistry) find_required_by(svcname string) []string {
+fn (vr &VigRegistry) find_required_by(svcname &string) []string {
 	mut ret := []string{}
 	for k, v in vr.vigsvcs {
 		for s in v.service.required_by {
@@ -79,13 +78,13 @@ fn (vr &VigRegistry) find_depends(svcname string) []string {
 	for k, v in vr.vigsvcs {
 		for s in v.service.depends_on {
 			if s.contains(svcname) {
-				ret << k
+				ret << k.clone()
 				break
 			}
 		}
 		for s in v.service.depends_ms {
 			if s.contains(svcname) {
-				ret << k
+				ret << k.clone()
 				break
 			}
 		}
@@ -102,36 +101,30 @@ fn (vr &VigRegistry) is_dependency_started(svc string) bool {
 		}
 	}
 	for _, s in dep {
-		if vr.vigsvcs[s].internal.state != .running {
+		if vr.vigsvcs[s].internal.state != int(ServiceState.running) {
 			return false
 		}
-	}
-	unsafe {
-		dep.free()
 	}
 	return true
 }
 
 fn (mut vr VigRegistry) service_started(svc string) {
-	vr.vigsvcs[svc].internal.state = .running
+	vr.vigsvcs[svc].internal.state = int(ServiceState.running)
 	for s in vr.find_depends(svc) {
-		if vr.vigsvcs[s].internal.state == .pending {
+		if vr.vigsvcs[s].internal.state == int(ServiceState.pending) {
 			vr.start_service(s)
 		}
-		unsafe { s.free() }
 	}
 	for s in vr.find_waits_for(svc) {
 		vr.start_service(s)
-		unsafe { s.free() }
 	}
 }
 
 fn (mut vr VigRegistry) service_stopped(svc string) {
-	vr.vigsvcs[svc].internal.state = .stopped
+	vr.vigsvcs[svc].internal.state = int(ServiceState.stopped)
 	for s in vr.find_depends(svc) {
 		if !vr.vigsvcs[s].service.restart_smooth {
 		}
-		unsafe { s.free() }
 	}
 }
 
@@ -145,12 +138,11 @@ mut:
 fn (mut h Hs6) hypervise_s6(mut ql quickev.QevLoop, fd int) {
 	logsimple_started(h.svcname)
 	h.vr.service_started(h.svcname)
-	s, _ := os.fd_read(fd, 1024)
-	unsafe { s.free() }
+	_, _ := os.fd_read(fd, 1024)
 	ql.del_datafd(fd)
 }
 
-fn (mut vr VigRegistry) start_process(svc string, reason ServiceReason) {
+fn (mut vr VigRegistry) start_process(svc string, reason int) {
 	if vr.vigsvcs[svc].service.command == '' {
 		return
 	}
@@ -158,15 +150,14 @@ fn (mut vr VigRegistry) start_process(svc string, reason ServiceReason) {
 	cmd_s := vr.vigsvcs[svc].service.command
 	mut cmd := cmd_s.split(' ')
 	if cmd.len > 1 {
-		replacer := [
+		cmd = cmd.map(it.replace_each([
 			'\$VIG_PID',
 			os.getpid().str(),
-		]
-		cmd = cmd.map(it.replace_each(replacer))
+		]))
 	}
 
 	//mut pipevar := 0
-	mut pipefds := [2]int{}
+	mut pipefds := [2]i32{}
 
 	match vr.vigsvcs[svc].service.type {
 		"process" {
@@ -206,25 +197,26 @@ fn (mut vr VigRegistry) start_process(svc string, reason ServiceReason) {
 		}
 	}
 	vr.vigsvcs[svc].internal.pid = pid
+	vr.vigsvcs[svc].internal.reason = int(reason)
 	return
 }
 
 fn (mut vr VigRegistry) start_service(svc string) {
-	if !vr.is_dependency_started(svc) {
-		vr.vigsvcs[svc].internal.state = .pending
+	if !vr.is_dependency_started(&svc) {
+		vr.vigsvcs[svc].internal.state = int(ServiceState.pending)
 		return
 	}
-	if vr.vigsvcs[svc].internal.state == .running {
+	if vr.vigsvcs[svc].internal.state == int(ServiceState.running) {
 		return
 	}
 
 	match vr.vigsvcs[svc].service.type {
 		"process", "fork", "oneshot" {
-			logsimple_start(svc)
-			vr.start_process(svc, .dependency)
+			logsimple_start(&svc)
+			vr.start_process(svc, int(ServiceReason.dependency))
 		}
 		"internal" {
-			logsimple_start(svc)
+			logsimple_start(&svc)
 			vr.service_started(svc)
 		}
 		else {}
@@ -232,33 +224,34 @@ fn (mut vr VigRegistry) start_service(svc string) {
 }
 
 // Start SERVICE, DFS, main implementation
-@[direct_array_access]
 fn (mut vr VigRegistry) start_service_tree(st string) {
-	mut str := st
+	mut str := st.clone()
 	mut graph := map[string][]string{}
 	for k, _ in vr.vigsvcs {
 		graph[k] = []string{}
 	}
 
-	for k, v in vr.vigsvcs {
+	for k, _ in vr.vigsvcs {
 		// depends on
-		for dep in v.service.depends_on {
-			mut depname := dep
+		for dep in vr.vigsvcs[k].service.depends_on {
+			mut depname := dep.clone()
+			//println("dependency found ${depname}")
 			if depname.starts_with('vt_') {
 				depname = depname.after('vt_')
 			}
 			if depname in vr.vigsvcs {
-				graph[k] << dep
+				graph[k] << dep.clone()
 			}
 		}
 		// depends ms
-		for dep in v.service.depends_ms {
-			mut depname := dep
+		for dep in vr.vigsvcs[k].service.depends_ms {
+			mut depname := dep.clone()
+			//println("dependency found ${depname}")
 			if depname.starts_with('vt_') {
 				depname = depname.after('vt_')
 			}
 			if depname in vr.vigsvcs {
-				graph[k] << dep
+				graph[k] << dep.clone()
 			}
 		}
 	}
@@ -267,17 +260,17 @@ fn (mut vr VigRegistry) start_service_tree(st string) {
 	mut instack := map[string]bool{}
 	mut stack := []string{}
 
-	// println('graph!!! ${graph}')
-	// println('maybe ${str}')
+	//println('graph!!! ${graph}')
+	//println('maybe ${str}')
 
 	stack << str
 
 	mut process := map[string]bool{}
 
 	for stack.len > 0 {
-		current := stack[stack.len - 1]
+		current := stack[stack.len - 1].clone()
 		if current in processed {
-			stack.pop()
+			stack.delete_last()
 			continue
 		}
 
@@ -285,18 +278,18 @@ fn (mut vr VigRegistry) start_service_tree(st string) {
 		mut processed_all := true
 
 		for dep in graph[current] {
-			mut depname := dep
+			mut depname := dep.clone()
 			if depname.starts_with('vt_') {
 				depname = depname.after('vt_')
 			}
 			if dep !in processed && dep !in instack {
-				stack << dep
+				stack << dep.clone()
 				processed_all = false
 			}
 		}
 
 		if processed_all {
-			stack.pop()
+			stack.delete_last()
 			instack[current] = false
 			process[current] = false
 		}
@@ -309,19 +302,9 @@ fn (mut vr VigRegistry) start_service_tree(st string) {
 		}
 		if servname in vr.vigsvcs {
 			//println(servname)
-			vr.start_service(servname)
+			vr.start_service(servname.clone())
 		}
 		processed[servname] = true
-		unsafe { servname.free() }
-	}
-
-	unsafe {
-		str.free()
-
-		processed.free()
-		instack.free()
-		stack.free()
-		process.free()
 	}
 }
 
@@ -339,21 +322,25 @@ fn (mut vr VigRegistry) stop_process(svc string) {
 fn (mut vr VigRegistry) stop_service(svname string) {
 	match vr.vigsvcs[svname].service.type {
 		"process" {
+			logsimple_stop(&svname)
 			vr.stop_process(svname)
 		}
 		"oneshot" {
+			logsimple_stopped(&svname)
 			vr.service_stopped(svname)
 		}
 		"fork" {
+			logsimple_stop(&svname)
 			vr.stop_process(svname)
 		}
 		"internal" {
-			vr.service_started(svname)
+			logsimple_stopped(&svname)
+			vr.service_stopped(svname)
 		}
 		else {}
 	}
 }
 
 // stops recursively
-fn (vr &VigRegistry) stop_service_tree(svname string) {
-}
+/*fn (vr &VigRegistry) stop_service_tree(svname string) {
+}*/

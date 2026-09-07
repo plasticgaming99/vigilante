@@ -1,4 +1,3 @@
-@[manualfree]
 module syscall
 
 import net
@@ -8,12 +7,12 @@ import net
 #include <unistd.h>
 #include <stdio.h>
 
-//fn C.socket (int, int, int) int
+pub fn C.socket (int, int, int) int
 
-struct C.sockaddr_un{
+/*struct C.sockaddr_un{
 	sun_family int
 	sun_path [108]u8
-}
+}*/
 
 //fn C.unlink(&u8) int
 
@@ -25,7 +24,7 @@ struct C.sockaddr {
 fn C.bind (int, &C.sockaddr, u32) int;
 
 pub fn create_unix_domain_socket(path string) !int {
-	s := C.socket(net.AddrFamily.unix, net.SocketType.seqpacket, 0)
+	s := C.socket(C.AF_LOCAL, C.SOCK_STREAM, 0)
 	if s < 0 {
 		return error("failed to create socket")
 	}
@@ -49,7 +48,7 @@ pub fn create_unix_domain_socket(path string) !int {
 }
 
 pub fn connect_unix_domain_socket(path string) !int {
-	s := C.socket(net.AddrFamily.unix, net.SocketType.seqpacket, 0)
+	s := C.socket(C.AF_LOCAL, C.SOCK_STREAM, 0)
 	if s < 0 {
 		return error("failed to create socket")
 	}

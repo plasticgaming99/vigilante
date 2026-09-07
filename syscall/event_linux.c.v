@@ -1,6 +1,5 @@
 // Wraps small amount of C syscall to V
 // foo fd epoll
-@[manualfree]
 module syscall
 
 import os
@@ -10,13 +9,13 @@ import os
 #include <sys/epoll.h>
 #include <sys/signalfd.h>
 
-const sys_epoll_create1 = C.__NR_epoll_create1
-const sys_epoll_ctl = C.__NR_epoll_ctl
-const sys_epoll_wait = C.__NR_epoll_wait
-const sys_epoll_pwait = C.__NR_epoll_pwait
-const sys_signalfd = C.__NR_signalfd
-const sys_timerfd_create = C.__NR_timerfd_create
-const sys_rt_sigprocmask = C.__NR_rt_sigprocmask
+const sys_epoll_create1 = C.__NR_epoll_create1 /*20*/
+const sys_epoll_ctl = C.__NR_epoll_ctl /*21*/
+const sys_epoll_wait = C.__NR_epoll_wait /*232*/
+const sys_epoll_pwait = C.__NR_epoll_pwait /*22*/
+const sys_signalfd = C.__NR_signalfd /*282*/
+const sys_timerfd_create = C.__NR_timerfd_create /*283*/
+const sys_rt_sigprocmask = C.__NR_rt_sigprocmask /*14*/
 
 // todo: all
 
@@ -34,7 +33,7 @@ pub struct C.epoll_event {
 }
 
 pub fn epoll_create1(flags int) !int {
-	e := C.syscall(sys_epoll_create1, flags)
+	e := unsafe {C.syscall(sys_epoll_create1, flags)}
 	if e < 0 {
 		return error('failed')
 	} else {
@@ -44,7 +43,7 @@ pub fn epoll_create1(flags int) !int {
 
 pub fn epoll_ctl(epfd int, op int, fd int, mut event C.epoll_event) ! {
 	event.data.fd = fd
-	e := C.syscall(sys_epoll_ctl, epfd, op, fd, &event)
+	e := unsafe {C.syscall(sys_epoll_ctl, epfd, op, fd, &event)}
 	if e == -1 {
 		error("somehow failed to add fd ${fd} ${os.posix_get_error_msg(C.errno)}")
 	}
@@ -54,7 +53,7 @@ pub fn epoll_wait(fd int, mut events []C.epoll_event, timeout int) !int {
 	if events.len == 0 {
 		error("buffer isn't usable, or not exists")
 	}
-	ret := C.syscall(sys_epoll_wait, fd, unsafe { &events[0] }, events.len, timeout)
+	ret := unsafe {C.syscall(sys_epoll_wait, fd, &events[0], events.len, timeout)}
 	if ret < 0 {
 		return error("error calling syscall: epoll ${os.posix_get_error_msg(C.errno)}")
 	}
@@ -105,7 +104,7 @@ pub fn (mut ss SigSetFd) add(sig int) {
 }*/
 
 pub fn signalfd(fd int, mask SigSetFd, flags int) int {
-	return C.syscall(sys_signalfd, fd, &mask, sizeof(mask.val), flags)
+	return unsafe {C.syscall(sys_signalfd, fd, &mask, sizeof(mask.val), flags)}
 }
 
 pub enum Clock {
@@ -115,5 +114,5 @@ pub enum Clock {
 
 // it might returns fd, or error -1
 pub fn timerfd_create(clock Clock, flags int) int {
-	return C.syscall(sys_timerfd_create, int(clock), flags)
+	return unsafe {C.syscall(sys_timerfd_create, int(clock), flags)}
 }

@@ -1,5 +1,4 @@
 // bind C language syscall interfaces to V
-@[manualfree]
 module syscall
 
 #include <unistd.h>
@@ -7,6 +6,7 @@ module syscall
 #include <sys/reboot.h>
 #include <signal.h>
 #include <sys/syscall.h>
+#include <sys/mount.h>
 
 const sys_exec = C.__NR_execve
 const sys_fork = C.__NR_fork
@@ -16,7 +16,7 @@ pub fn wnohang() int {
 	return C.WNOHANG
 }
 
-fn C.syscall(sysno int, ...voidptr) int
+fn C.syscall(sysno i32, ...voidptr) i32
 
 fn C.reboot(cmd int) int
 
@@ -45,13 +45,13 @@ pub fn reboot() ! {
 	}
 }
 
-fn C.mount(source string, target string, fstype string, mountflags u32, data ?) int
+/*fn C.mount(source string, target string, fstype string, mountflags u32, data ?) int
 pub fn mount(source string, target string, fstype string, mountflafs u32, data ?) ! {
 	code := C.mount(source, target, fstype, mountflafs, data)
 	if code != 0 {
 		return error('failed to mount')
 	}
-}
+}*/
 
 fn C.waidpid(pid int, status &int, options int) int
 

@@ -2,7 +2,7 @@
 
 module main
 
-import x.json2
+import json2
 import vigctl.lib as vigctllib
 
 const proto_version = 1
@@ -14,15 +14,17 @@ fn vigctl_do(s string, mut vr VigRegistry) string {
 	rt_vdt.purpose = vigctllib.vigctl_return
 	match vdt.purpose {
 		vigctllib.vigctl_start {
+			//println("vigctl: revieved service name ${vdt.content}")
 			if vdt.content == "" {
 				rt_vdt.content = "Invailed service name entered."
 				return json2.encode(rt_vdt)
 			}
-			if vr.vigsvcs[vdt.content].internal.state == .running {
+			if vr.vigsvcs[vdt.content].internal.state == int(ServiceState.running) {
 				rt_vdt.content = "Service ${vdt.content} is already started."
 				return json2.encode(rt_vdt)
 			}
-			vr.start_service_tree(vdt.content)
+			vr.start_service_tree(vdt.content.clone())
+			//println("yo start-ish thing finished, btw service name is ${vdt.content}")
 			rt_vdt.content = "Started service ${vdt.content}"
 			return json2.encode(rt_vdt)
 		}
@@ -31,7 +33,7 @@ fn vigctl_do(s string, mut vr VigRegistry) string {
 				rt_vdt.content = "Invailed service name entered."
 				return json2.encode(rt_vdt)
 			}
-			if vr.vigsvcs[vdt.content].internal.state == .stopped {
+			if vr.vigsvcs[vdt.content].internal.state == int(ServiceState.stopped) {
 				rt_vdt.content = "Service ${vdt.content} is already stopped."
 				return json2.encode(rt_vdt)
 			}

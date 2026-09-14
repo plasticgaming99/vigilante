@@ -2,7 +2,7 @@
 
 module main
 
-import json2
+import x.json2
 import vigctl.lib as vigctllib
 
 const proto_version = 1

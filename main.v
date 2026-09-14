@@ -4,7 +4,7 @@ import os
 import syscall
 import quickev
 
-const vig_service_nil = VigService{}
+//const vig_service_nil = VigService{}
 
 fn walk_service_dir(fpath string, mut vserv map[string]VigService) {
 	if os.is_dir(fpath) {
@@ -48,7 +48,7 @@ pub mut:
 
 @[direct_array_access]
 fn main() {
-	
+
 	// println(load_service_file("./test.service") or { err.str() })
 	// exit(1)
 	// global-variable-avoiding-zone start
@@ -95,12 +95,10 @@ fn main() {
 		service_dir = '/usr/vigilante.d/system.d'
 	}
 
-	mut v_r := vig_registry
-
 	// load service files
 	if servicetype == VigProcessType.sys_init {
-		os.walk(service_dir, fn [mut v_r] (s string) {
-			walk_service_dir(s, mut v_r.vigsvcs)
+		os.walk(service_dir, fn [mut vig_registry] (s string) {
+			walk_service_dir(s, mut vig_registry.vigsvcs)
 		})
 	}
 	//println(vig_services.str())
@@ -117,16 +115,16 @@ fn main() {
 		println(err)
 		exit(1)
 	}
-	v_r.qevloop = &qevloop
+	vig_registry.qevloop = &qevloop
 
-	v_r.qevloop.add_signal(os.Signal.usr1, fn () {
+	vig_registry.qevloop.add_signal(os.Signal.usr1, fn () {
 		println('hi im function')
 	})
-	v_r.qevloop.add_signal(os.Signal.int, fn () {
+	vig_registry.qevloop.add_signal(os.Signal.int, fn () {
 		println('reboot everything!!!')
 		exit(0) // temp
 	})
-	v_r.qevloop.add_signal(os.Signal.chld, fn [mut vig_registry] () {
+	vig_registry.qevloop.add_signal(os.Signal.chld, fn [mut vig_registry] () {
 		sigchld_handler(mut vig_registry)
 	})
 
@@ -137,8 +135,8 @@ fn main() {
 	}
 
 	// process vigctl
-	mut vch := VigctlHandler{v_r: v_r}
-	v_r.qevloop.add_accepterfd(uds, vch.vigctl_accept_handler) or {}
+	mut vch := VigctlHandler{v_r: vig_registry}
+	vig_registry.qevloop.add_accepterfd(uds, vch.vigctl_accept_handler) or {}
 
 	//println('epoll fd:${qevloop.get_epollfd()}')
 	//println('signal fd:${qevloop.get_signalfd()}')
@@ -149,7 +147,7 @@ fn main() {
 	vig_registry.start_service_tree('default.target')
 
 	//println("run qevloop")
-	v_r.qevloop.run()
+	vig_registry.qevloop.run()
 
 	// this is test code.
 }

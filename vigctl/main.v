@@ -3,7 +3,7 @@ module main
 import syscall
 import lib as vigctllib
 import os
-import json2
+import x.json2
 
 enum Control {
 	start
@@ -99,7 +99,7 @@ fn main() {
 		println(cnter)
 		// if cnter == 50000 {
 		//	break
-		//}
+		// }
 		exit(0)
 	}
 }

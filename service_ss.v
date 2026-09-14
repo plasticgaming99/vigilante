@@ -202,7 +202,7 @@ fn (mut vr VigRegistry) start_process(svc string, reason int) {
 }
 
 fn (mut vr VigRegistry) start_service(svc string) {
-	if !vr.is_dependency_started(&svc) {
+	if !vr.is_dependency_started(svc.clone()) {
 		vr.vigsvcs[svc].internal.state = int(ServiceState.pending)
 		return
 	}
@@ -212,11 +212,11 @@ fn (mut vr VigRegistry) start_service(svc string) {
 
 	match vr.vigsvcs[svc].service.type {
 		"process", "fork", "oneshot" {
-			logsimple_start(&svc)
+			logsimple_start(svc.clone())
 			vr.start_process(svc, int(ServiceReason.dependency))
 		}
 		"internal" {
-			logsimple_start(&svc)
+			logsimple_start(svc.clone())
 			vr.service_started(svc)
 		}
 		else {}
@@ -322,19 +322,19 @@ fn (mut vr VigRegistry) stop_process(svc string) {
 fn (mut vr VigRegistry) stop_service(svname string) {
 	match vr.vigsvcs[svname].service.type {
 		"process" {
-			logsimple_stop(&svname)
+			logsimple_stop(svname.clone())
 			vr.stop_process(svname)
 		}
 		"oneshot" {
-			logsimple_stopped(&svname)
+			logsimple_stopped(svname.clone())
 			vr.service_stopped(svname)
 		}
 		"fork" {
-			logsimple_stop(&svname)
+			logsimple_stop(svname.clone())
 			vr.stop_process(svname)
 		}
 		"internal" {
-			logsimple_stopped(&svname)
+			logsimple_stopped(svname.clone())
 			vr.service_stopped(svname)
 		}
 		else {}
